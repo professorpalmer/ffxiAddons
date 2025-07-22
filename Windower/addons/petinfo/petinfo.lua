@@ -24,8 +24,9 @@ local pet_data = {
     target_distance = 0,
     active = false,
     target_id = nil,
-    target_last_seen = 0,  -- Add this
-    target_from_proximity = false  -- Add this
+    target_last_seen = 0,
+    target_from_proximity = false,
+    last_action_time = 0  -- Track when pet last acted
 }
 
 -- Add this debug flag at the top with other variables
@@ -194,24 +195,56 @@ local function update_pet_info()
         pet_data.hp_percent = pet.hpp or 0
     end
     
-    -- Only validate existing packet targets - NO PROXIMITY FALLBACK for testing
+    -- Validate existing target and clear if invalid/dead/gone
     if pet_data.target_id and pet_data.target_id > 0 then
         local mobs = windower.ffxi.get_mob_array()
         local target_found = false
+        local target_valid = false
+        
         for _, mob in pairs(mobs) do
             if mob and mob.id == pet_data.target_id then
-                pet_data.target_name = mob.name
-                pet_data.target_hp_percent = mob.hpp
-                pet_data.target_distance = math.sqrt(mob.distance)
                 target_found = true
+                -- Check if target is still valid (alive, has HP, etc.)
+                if mob.hpp and mob.hpp > 0 and mob.spawn_type == 16 then
+                    pet_data.target_name = mob.name
+                    pet_data.target_hp_percent = mob.hpp
+                    pet_data.target_distance = math.sqrt(mob.distance)
+                    target_valid = true
+                else
+                    -- Target is dead or invalid
+                    pet_data.target_name = nil
+                    pet_data.target_id = nil
+                    pet_data.target_hp_percent = 0
+                end
                 break
+            end
         end
-    end
         
         if not target_found then
-            windower.add_to_chat(8, 'Target entity no longer exists')
+            -- Target entity no longer exists
             pet_data.target_name = nil
             pet_data.target_id = nil
+            pet_data.target_hp_percent = 0
+        end
+    end
+    
+    -- Clear target if no recent combat activity (30 seconds timeout)
+    if pet_data.target_id and pet_data.last_action_time > 0 then
+        local current_time = os.clock()
+        if current_time - pet_data.last_action_time > 30 then
+            pet_data.target_name = nil
+            pet_data.target_id = nil
+            pet_data.target_hp_percent = 0
+        end
+    end
+    
+    -- Also clear target if pet TP is very low (indicating long period without combat)
+    if pet_data.target_id and pet_data.tp < 100 then
+        local current_time = os.clock()
+        if pet_data.target_last_seen > 0 and current_time - pet_data.target_last_seen > 15 then
+            pet_data.target_name = nil
+            pet_data.target_id = nil
+            pet_data.target_hp_percent = 0
         end
     end
     
@@ -295,6 +328,9 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
             local actor_id = original:unpack('I', 0x06)
             
             if actor_id == pet.id then
+                -- Update last action time
+                pet_data.last_action_time = os.clock()
+                
                 local target_positions = {0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A}
                 
                 for _, pos in ipairs(target_positions) do
@@ -314,6 +350,9 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
         if pet then
             local actor_id = original:unpack('I', 0x05)
             if actor_id == pet.id then
+                -- Update last action time for damage as well
+                pet_data.last_action_time = os.clock()
+                
                 local target_count = original:unpack('C', 0x09)
                 if target_count > 0 then
                     local target_id = original:unpack('I', 0x16)
@@ -355,6 +394,7 @@ function handle_packet_target(target_id)
                 pet_data.target_distance = math.sqrt(mob.distance)
                 pet_data.target_from_proximity = false
                 pet_data.target_last_seen = os.clock()
+                pet_data.last_action_time = os.clock()  -- Also update action time when acquiring target
                 return true
             end
         end
@@ -390,12 +430,20 @@ end
 windower.register_event('zone change', function()
     pet_data.active = false
     pet_data.target_id = nil
+    pet_data.target_name = nil
+    pet_data.target_hp_percent = 0
+    pet_data.last_action_time = 0
+    pet_data.target_last_seen = 0
     update_display()
 end)
 
 windower.register_event('job change', function()
     pet_data.active = false
     pet_data.target_id = nil
+    pet_data.target_name = nil
+    pet_data.target_hp_percent = 0
+    pet_data.last_action_time = 0
+    pet_data.target_last_seen = 0
     update_display()
 end)
 
