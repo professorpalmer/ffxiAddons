@@ -1,7 +1,7 @@
 --[[
 * Checker - Enhanced target checking for Windower
 * Originally by atom0s & Lolwutt for Ashita
-* Converted to Windower by Palmer
+* Converted to Windower by Palmer (Zodiarchy @ Asura)
 *
 * Displays enhanced information about target checks including level,
 * difficulty rating, and defense/evasion conditions.
