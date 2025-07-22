@@ -31,6 +31,9 @@ local pet_data = {
 -- Add this debug flag at the top with other variables
 local debug_targeting = true
 
+-- Add debug mode for packet analysis
+local debug_packets = true  -- Set to true to see what we're capturing
+
 -- Default settings
 local defaults = {
     pos = { x = 100, y = 100 },
@@ -178,7 +181,6 @@ local function update_pet_info()
         if pet_data.active then
             pet_data.active = false
             pet_data.target_id = nil
-            pet_data.target_from_proximity = false
             update_display()
         end
         return
@@ -192,101 +194,24 @@ local function update_pet_info()
         pet_data.hp_percent = pet.hpp or 0
     end
     
-    local current_time = os.clock()
-    
-    -- AGGRESSIVE target validation - clear target if it's not valid
+    -- Only validate existing packet targets - NO PROXIMITY FALLBACK for testing
     if pet_data.target_id and pet_data.target_id > 0 then
-        local target = get_entity_by_server_id(pet_data.target_id)
-        local target_valid = false
-        
-        if target and target.hpp and target.hpp > 0 then
-            local target_distance = math.sqrt(target.distance)
-            
-            -- Target is valid if:
-            -- 1. Close to pet (within 15 yalms)
-            -- 2. Recently seen (within 3 seconds) OR has taken damage recently
-            if target_distance < 15 then
-                pet_data.target_name = target.name
-                pet_data.target_hp_percent = target.hpp
-                pet_data.target_distance = target_distance
-                pet_data.target_last_seen = current_time
-                target_valid = true
-            end
-        end
-        
-        -- Clear target if invalid OR if it's a proximity target that's too old
-        if not target_valid or 
-           (pet_data.target_from_proximity and (current_time - pet_data.target_last_seen) > 5) then
-            windower.add_to_chat(8, 'Clearing invalid/old target')
-            pet_data.target_name = nil
-            pet_data.target_id = nil
-            pet_data.target_from_proximity = false
+        local mobs = windower.ffxi.get_mob_array()
+        local target_found = false
+        for _, mob in pairs(mobs) do
+            if mob and mob.id == pet_data.target_id then
+                pet_data.target_name = mob.name
+                pet_data.target_hp_percent = mob.hpp
+                pet_data.target_distance = math.sqrt(mob.distance)
+                target_found = true
+                break
         end
     end
-    
-    -- Only search for new target if we don't have one OR our current one is from proximity
-    if not pet_data.target_id or pet_data.target_from_proximity then
-        local best_target = nil
-        local best_score = 0
         
-        local mobs = windower.ffxi.get_mob_array()
-        for _, mob in pairs(mobs) do
-            if mob and mob.spawn_type == 16 and mob.hpp > 0 then
-                local distance = math.sqrt(mob.distance)
-                
-                -- Only consider very close enemies
-                if distance < 8 then
-                    local score = 0
-                    
-                    -- HEAVILY prioritize injured enemies (likely in combat)
-                    if mob.hpp < 100 then
-                        score = score + 100
-                    end
-                    
-                    -- HEAVILY prioritize very close enemies
-                    if distance < 5 then
-                        score = score + 80
-                    end
-                    
-                    -- Prioritize closer enemies
-                    score = score + (8 - distance) * 10
-                    
-                    -- Big bonus for enemies with status effects
-                    if mob.status and mob.status ~= 0 then
-                        score = score + 60
-                    end
-                    
-                    if score > best_score then
-                        best_score = score
-                        best_target = mob
-                    end
-                end
-            end
-        end
-        
-        -- Only use proximity target if it's VERY likely to be correct AND better than current
-        if best_target and best_score > 120 then
-            -- If we already have a proximity target, only switch if new one is much better
-            if pet_data.target_from_proximity then
-                if best_target.id ~= pet_data.target_id and best_score > 140 then
-                    pet_data.target_id = best_target.id
-                    pet_data.target_name = best_target.name
-                    pet_data.target_hp_percent = best_target.hpp
-                    pet_data.target_distance = math.sqrt(best_target.distance)
-                    pet_data.target_from_proximity = true
-                    pet_data.target_last_seen = current_time
-                    windower.add_to_chat(121, string.format('Switched target: %s (score: %d)', best_target.name, best_score))
-                end
-            else
-                -- No current target, use this one
-                pet_data.target_id = best_target.id
-                pet_data.target_name = best_target.name
-                pet_data.target_hp_percent = best_target.hpp
-                pet_data.target_distance = math.sqrt(best_target.distance)
-                pet_data.target_from_proximity = true
-                pet_data.target_last_seen = current_time
-                windower.add_to_chat(121, string.format('New proximity target: %s (score: %d)', best_target.name, best_score))
-            end
+        if not target_found then
+            windower.add_to_chat(8, 'Target entity no longer exists')
+            pet_data.target_name = nil
+            pet_data.target_id = nil
         end
     end
     
@@ -298,14 +223,19 @@ windower.register_event('prerender', function()
     update_pet_info()
 end)
 
--- Replace the packet handling section with this corrected version:
+-- Replace the packet handling with this clean version (no debug spam):
 
 windower.register_event('incoming chunk', function(id, original, modified, injected, blocked)
     if injected then return end
     
+    local player = windower.ffxi.get_player()
+    if not player then return end
+    
+    local pet = get_pet()
+    
     -- Puppet MP/HP update packet
     if id == 0x44 then
-        if original:unpack('C', 0x05) == 0x12 then    -- puppet update
+        if original:unpack('C', 0x05) == 0x12 then
             local new_current_hp, new_max_hp, new_current_mp, new_max_mp = original:unpack('HHHH', 0x069)
             local puppet_name = original:unpack('z', 0x59)
             
@@ -333,65 +263,104 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
             pet_idx, own_idx = own_idx, pet_idx
         end
         
-        if (msg_type == 0x04) then
-            local player = windower.ffxi.get_player()
-            if not player then return end
+        if (msg_type == 0x04) and own_idx == player.index then
+            local new_hp_percent = packet['Current HP%']
+            local new_mp_percent = packet['Current MP%']
+            local new_tp_percent = packet['Pet TP']
+            local pet_name = packet['Pet Name']
             
-            if (pet_idx == 0) then
-                pet_data.active = false
-                pet_data.target_id = nil
-                update_display()
-            elseif own_idx == player.index then
-                local new_hp_percent = packet['Current HP%']
-                local new_mp_percent = packet['Current MP%']
-                local new_tp_percent = packet['Pet TP']
-                local pet_name = packet['Pet Name']
+            if pet_name and pet_name ~= '' then
+                pet_data.name = pet_name
+                pet_data.active = true
+            end
+            
+            if new_hp_percent and new_hp_percent > 0 then
+                pet_data.hp_percent = new_hp_percent
+                pet_data.hp_from_packet = true
+            end
+            
+            if new_mp_percent and new_mp_percent > 0 then
+                pet_data.mp_percent = new_mp_percent
+            end
+            
+            if new_tp_percent then
+                pet_data.tp = new_tp_percent
+            end
+        end
+    end
+    
+    -- ACTION PACKET - Pet targeting
+    if id == 0x28 then
+        if pet then
+            local actor_id = original:unpack('I', 0x06)
+            
+            if actor_id == pet.id then
+                local target_positions = {0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A}
                 
-                if pet_name and pet_name ~= '' then
-                    pet_data.name = pet_name
-                    pet_data.active = true
-                end
-                
-                if new_hp_percent and new_hp_percent > 0 then
-                    pet_data.hp_percent = new_hp_percent
-                    pet_data.hp_from_packet = true
-                end
-                
-                if new_mp_percent and new_mp_percent > 0 then
-                    pet_data.mp_percent = new_mp_percent
-                end
-                
-                if new_tp_percent then
-                    pet_data.tp = new_tp_percent
+                for _, pos in ipairs(target_positions) do
+                    local target_id = original:unpack('I', pos)
+                    if target_id and target_id > 0 then
+                        if handle_packet_target(target_id) then
+                            break
+                        end
+                    end
                 end
             end
         end
     end
     
-    -- Pet action packet - ENHANCED targeting logic
-    if id == 0x28 then
-        local player = windower.ffxi.get_player()
-        if not player then return end
-        
-        local actor_id = original:unpack('I', 0x05)
-        local pet = get_pet()
-        
-        if pet and actor_id == pet.id then
-            local targets_count = original:unpack('C', 0x09)
-            
-            if targets_count > 0 then
-                local target_id = original:unpack('I', 0x16)
-                
+    -- DAMAGE PACKET - Backup targeting
+    if id == 0x29 then
+        if pet then
+            local actor_id = original:unpack('I', 0x05)
+            if actor_id == pet.id then
+                local target_count = original:unpack('C', 0x09)
+                if target_count > 0 then
+                    local target_id = original:unpack('I', 0x16)
+                    if target_id and target_id > 0 then
+                        handle_packet_target(target_id)
+                    end
+                end
+            end
+        end
+    end
+    
+    -- PET SYNC PACKET
+    if id == 0x68 then
+        if pet then
+            local owner_id = original:unpack('I', 0x09)
+            if owner_id == player.id then
+                local target_id = original:unpack('I', 0x15)
                 if target_id and target_id > 0 then
-                    pet_data.target_id = target_id
-                    pet_data.target_from_proximity = false  -- This is authoritative data
-                    pet_data.target_last_seen = os.clock()
-                    windower.add_to_chat(121, string.format('Pet action target: %d (PACKET)', target_id))
+                    handle_packet_target(target_id)
                 end
             end
         end
     end
 end)
+
+-- Clean helper function (no debug messages)
+function handle_packet_target(target_id)
+    if not target_id or target_id <= 0 or target_id > 0x7FFFFFFF then
+        return false
+    end
+    
+    local mobs = windower.ffxi.get_mob_array()
+    for _, mob in pairs(mobs) do
+        if mob and mob.id == target_id then
+            if mob.spawn_type == 16 or (mob.hpp and mob.hpp > 0) then
+                pet_data.target_id = target_id
+                pet_data.target_name = mob.name
+                pet_data.target_hp_percent = mob.hpp or 0
+                pet_data.target_distance = math.sqrt(mob.distance)
+                pet_data.target_from_proximity = false
+                pet_data.target_last_seen = os.clock()
+                return true
+            end
+        end
+    end
+    return false
+end
 
 -- Fallback: Proximity-based target guessing
 local function guess_pet_target()
