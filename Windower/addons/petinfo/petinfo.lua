@@ -191,9 +191,9 @@ local function update_pet_info()
     pet_data.name = pet.name or pet_data.name
     pet_data.distance = pet.distance and math.sqrt(pet.distance) or 0
     
-    if not pet_data.hp_from_packet then
-        pet_data.hp_percent = pet.hpp or 0
-    end
+    -- Always update HP from entity data (most current)
+    -- This ensures healing outside combat is reflected immediately
+    pet_data.hp_percent = pet.hpp or 0
     
     -- Validate existing target and clear if invalid/dead/gone
     if pet_data.target_id and pet_data.target_id > 0 then
@@ -278,7 +278,6 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
                 else
                     pet_data.mp_percent = 0
                 end
-                pet_data.hp_from_packet = true
             end
         end
     end
@@ -309,7 +308,6 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
             
             if new_hp_percent and new_hp_percent > 0 then
                 pet_data.hp_percent = new_hp_percent
-                pet_data.hp_from_packet = true
             end
             
             if new_mp_percent and new_mp_percent > 0 then
