@@ -23,7 +23,9 @@ local pet_data = {
     target_hp_percent = 0,
     target_distance = 0,
     active = false,
-    target_id = nil
+    target_id = nil,
+    target_last_seen = 0,  -- Add this
+    target_from_proximity = false  -- Add this
 }
 
 -- Add this debug flag at the top with other variables
@@ -176,6 +178,7 @@ local function update_pet_info()
         if pet_data.active then
             pet_data.active = false
             pet_data.target_id = nil
+            pet_data.target_from_proximity = false
             update_display()
         end
         return
@@ -189,45 +192,101 @@ local function update_pet_info()
         pet_data.hp_percent = pet.hpp or 0
     end
     
-    -- Update target info if we have target_id
+    local current_time = os.clock()
+    
+    -- AGGRESSIVE target validation - clear target if it's not valid
     if pet_data.target_id and pet_data.target_id > 0 then
         local target = get_entity_by_server_id(pet_data.target_id)
+        local target_valid = false
+        
         if target and target.hpp and target.hpp > 0 then
-            pet_data.target_name = target.name
-            pet_data.target_hp_percent = target.hpp
-            pet_data.target_distance = target.distance and math.sqrt(target.distance) or 0
-        else
-            -- Target no longer valid
+            local target_distance = math.sqrt(target.distance)
+            
+            -- Target is valid if:
+            -- 1. Close to pet (within 15 yalms)
+            -- 2. Recently seen (within 3 seconds) OR has taken damage recently
+            if target_distance < 15 then
+                pet_data.target_name = target.name
+                pet_data.target_hp_percent = target.hpp
+                pet_data.target_distance = target_distance
+                pet_data.target_last_seen = current_time
+                target_valid = true
+            end
+        end
+        
+        -- Clear target if invalid OR if it's a proximity target that's too old
+        if not target_valid or 
+           (pet_data.target_from_proximity and (current_time - pet_data.target_last_seen) > 5) then
+            windower.add_to_chat(8, 'Clearing invalid/old target')
             pet_data.target_name = nil
             pet_data.target_id = nil
+            pet_data.target_from_proximity = false
         end
     end
     
-    -- Enhanced proximity fallback - look for ANY nearby enemy
-    if not pet_data.target_id then
-        local closest_enemy = nil
-        local closest_distance = 999
+    -- Only search for new target if we don't have one OR our current one is from proximity
+    if not pet_data.target_id or pet_data.target_from_proximity then
+        local best_target = nil
+        local best_score = 0
         
         local mobs = windower.ffxi.get_mob_array()
         for _, mob in pairs(mobs) do
-            -- Look for enemies (spawn_type 16) that are alive
             if mob and mob.spawn_type == 16 and mob.hpp > 0 then
                 local distance = math.sqrt(mob.distance)
-                -- Increase range and remove HP requirement
-                if distance < 15 and distance < closest_distance then
-                    closest_distance = distance
-                    closest_enemy = mob
-                    windower.add_to_chat(8, string.format('Found nearby enemy: %s at %.1f distance', mob.name, distance))
+                
+                -- Only consider very close enemies
+                if distance < 8 then
+                    local score = 0
+                    
+                    -- HEAVILY prioritize injured enemies (likely in combat)
+                    if mob.hpp < 100 then
+                        score = score + 100
+                    end
+                    
+                    -- HEAVILY prioritize very close enemies
+                    if distance < 5 then
+                        score = score + 80
+                    end
+                    
+                    -- Prioritize closer enemies
+                    score = score + (8 - distance) * 10
+                    
+                    -- Big bonus for enemies with status effects
+                    if mob.status and mob.status ~= 0 then
+                        score = score + 60
+                    end
+                    
+                    if score > best_score then
+                        best_score = score
+                        best_target = mob
+                    end
                 end
             end
         end
         
-        if closest_enemy then
-            pet_data.target_id = closest_enemy.id
-            pet_data.target_name = closest_enemy.name
-            pet_data.target_hp_percent = closest_enemy.hpp
-            pet_data.target_distance = closest_distance
-            windower.add_to_chat(121, string.format('Proximity target: %s', closest_enemy.name))
+        -- Only use proximity target if it's VERY likely to be correct AND better than current
+        if best_target and best_score > 120 then
+            -- If we already have a proximity target, only switch if new one is much better
+            if pet_data.target_from_proximity then
+                if best_target.id ~= pet_data.target_id and best_score > 140 then
+                    pet_data.target_id = best_target.id
+                    pet_data.target_name = best_target.name
+                    pet_data.target_hp_percent = best_target.hpp
+                    pet_data.target_distance = math.sqrt(best_target.distance)
+                    pet_data.target_from_proximity = true
+                    pet_data.target_last_seen = current_time
+                    windower.add_to_chat(121, string.format('Switched target: %s (score: %d)', best_target.name, best_score))
+                end
+            else
+                -- No current target, use this one
+                pet_data.target_id = best_target.id
+                pet_data.target_name = best_target.name
+                pet_data.target_hp_percent = best_target.hpp
+                pet_data.target_distance = math.sqrt(best_target.distance)
+                pet_data.target_from_proximity = true
+                pet_data.target_last_seen = current_time
+                windower.add_to_chat(121, string.format('New proximity target: %s (score: %d)', best_target.name, best_score))
+            end
         end
     end
     
@@ -309,7 +368,7 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
         end
     end
     
-    -- Pet action packet - FIXED targeting logic
+    -- Pet action packet - ENHANCED targeting logic
     if id == 0x28 then
         local player = windower.ffxi.get_player()
         if not player then return end
@@ -318,16 +377,16 @@ windower.register_event('incoming chunk', function(id, original, modified, injec
         local pet = get_pet()
         
         if pet and actor_id == pet.id then
-            -- Try multiple target positions based on action packet structure
             local targets_count = original:unpack('C', 0x09)
             
             if targets_count > 0 then
-                -- Target should be at position 0x16 for first target
                 local target_id = original:unpack('I', 0x16)
                 
                 if target_id and target_id > 0 then
                     pet_data.target_id = target_id
-                    windower.add_to_chat(121, string.format('Pet targeting (action): %d', target_id))
+                    pet_data.target_from_proximity = false  -- This is authoritative data
+                    pet_data.target_last_seen = os.clock()
+                    windower.add_to_chat(121, string.format('Pet action target: %d (PACKET)', target_id))
                 end
             end
         end
