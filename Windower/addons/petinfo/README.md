@@ -1,6 +1,6 @@
 # PetInfo for Windower
 
-**A Windower addon that recreates Ashita's beautiful ImGui-style pet interface with full functionality.**
+**A Windower addon that recreates Ashita's ImGui-style pet interface with full functionality.**
 
 **Author:** Palmer (Zodiarchy @ Asura)  
 **Version:** 1.0  
@@ -13,7 +13,7 @@
 **Top:** PetInfo - Clean GUI-style display with target tracking  
 **Bottom:** PetTP - Traditional text-based display
 
-*Our addon successfully recreates Ashita's polished interface while running on Windower!*
+*This addon successfully recreates Ashita's polished interface while running on Windower!*
 
 ## Features
 
