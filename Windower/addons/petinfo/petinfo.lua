@@ -48,19 +48,50 @@ local defaults = {
         blue = 255 
     },
     flags = { bold = false, italic = false, draggable = true },
-    padding = 8
+    padding = 8,
+    scale = 1.0  -- Scale multiplier for size/padding
 }
 
 local settings = config.load(defaults)
 
+-- Function to get scaled text settings
+local function get_scaled_settings()
+    return {
+        pos = { x = settings.pos.x, y = settings.pos.y },
+        bg = settings.bg,
+        text = { 
+            size = math.floor(settings.text.size * settings.scale),
+            font = settings.text.font,
+            alpha = settings.text.alpha,
+            red = settings.text.red,
+            green = settings.text.green,
+            blue = settings.text.blue
+        },
+        flags = settings.flags,
+        padding = math.floor(settings.padding * settings.scale)
+    }
+end
+
 -- Create text objects for the UI
-local main_display = texts.new('', {
-    pos = { x = settings.pos.x, y = settings.pos.y },
-    bg = settings.bg,
-    text = settings.text,
-    flags = settings.flags,
-    padding = settings.padding
-})
+local main_display = texts.new('', get_scaled_settings())
+
+-- Function to recreate display with new scale
+local function apply_scale()
+    if not main_display then
+        main_display = texts.new('', get_scaled_settings())
+        return
+    end
+    
+    local current_text = main_display:text() or ''
+    local was_visible = main_display:visible()
+    
+    main_display:destroy()
+    main_display = texts.new(current_text, get_scaled_settings())
+    
+    if was_visible then
+        main_display:show()
+    end
+end
 
 -- Helper functions
 local function create_progress_bar(percent, width, color_rgb)
@@ -451,6 +482,7 @@ windower.register_event('addon command', function(command, ...)
     if command == 'help' then
         windower.add_to_chat(121, 'PetInfo Commands:')
         windower.add_to_chat(121, '  //petinfo pos <x> <y> - Set position')
+        windower.add_to_chat(121, '  //petinfo scale <value> - Set scale (0.5-3.0)')
         windower.add_to_chat(121, '  //petinfo save - Save settings')
         windower.add_to_chat(121, '  //petinfo reload - Reload addon')
         windower.add_to_chat(121, '  //petinfo test - Show test display')
@@ -461,6 +493,20 @@ windower.register_event('addon command', function(command, ...)
             settings.pos.y = tonumber(args[2])
             main_display:pos(settings.pos.x, settings.pos.y)
             windower.add_to_chat(121, 'Position set to: ' .. settings.pos.x .. ', ' .. settings.pos.y)
+        end
+    elseif command == 'scale' then
+        local args = {...}
+        if args[1] then
+            local scale = tonumber(args[1])
+            if scale and scale >= 0.5 and scale <= 3.0 then
+                settings.scale = scale
+                apply_scale()
+                windower.add_to_chat(121, 'Scale set to: ' .. settings.scale)
+            else
+                windower.add_to_chat(121, 'Scale must be between 0.5 and 3.0')
+            end
+        else
+            windower.add_to_chat(121, 'Current scale: ' .. settings.scale)
         end
     elseif command == 'save' then
         config.save(settings)
