@@ -135,7 +135,7 @@ local function update_display()
     
     -- Pet name and distance
     if pet_data.distance > 0 then
-        output = output .. string.format('\\cs(255,255,255)%s \\cs(128,128,128)(%.1f)\\cr', 
+        output = output .. string.format('\\cs(255,255,255)%s \\cs(220,220,220)(%.1f)\\cr', 
             pet_data.name or 'Unknown', pet_data.distance)
     else
         output = output .. string.format('\\cs(255,255,255)%s\\cr', pet_data.name or 'Unknown')
@@ -171,7 +171,7 @@ local function update_display()
         
         -- Target name and distance
         if pet_data.target_distance > 0 then
-            output = output .. string.format('\\cs(255,200,200)%s \\cs(128,128,128)(%.1f)\\cr', 
+            output = output .. string.format('\\cs(255,200,200)%s \\cs(220,220,220)(%.1f)\\cr', 
                 pet_data.target_name, pet_data.target_distance)
         else
             output = output .. string.format('\\cs(255,200,200)%s\\cr', pet_data.target_name)
