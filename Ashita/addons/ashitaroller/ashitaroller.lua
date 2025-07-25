@@ -45,6 +45,13 @@ defaults.randomdeal = true
 defaults.oldrandomdeal = false
 defaults.partyalert = false
 defaults.gamble = false
+-- Merit ability availability flags
+defaults.hasSnakeEye = nil  -- nil = auto-detect, true/false = manual override
+defaults.hasFold = nil      -- nil = auto-detect, true/false = manual override
+
+-- Runtime flags for merit abilities
+hasSnakeEye = false
+hasFold = false
 zonedelay = 6
 stealthy = false
 was_stealthy = ''
@@ -260,6 +267,20 @@ function rollsFixedOverlay()
   else
     imgui.Text("Mode: Not COR");
   end
+  
+  -- Show merit ability status
+  if mainjob == 17 or subjob == 17 then
+    if hasSnakeEye then
+      imgui.Text("Snake Eye: Available")
+    else
+      imgui.Text("Snake Eye: Not Learned")
+    end
+    if hasFold then
+      imgui.Text("Fold: Available")
+    else
+      imgui.Text("Fold: Not Learned")
+    end
+  end
 
   imgui.End();
 end
@@ -425,6 +446,8 @@ ashita.events.register('command', 'command_cb', function(e)
             {'oldrandomdeal','on/off - on;focuses on resetting Snake Eye/Fold, off;focuses on resetting Crooked Cards'},
             {'gamble','on/off - Abuses bust immunity to try to get double 11 as much as possible'},
             {'partyalert','on/off - Writes a message in /party a few seconds before rolling'},
+            {'snakeeye','on/off/auto - Enable/disable/auto-detect Snake Eye merit ability'},
+            {'fold','on/off/auto - Enable/disable/auto-detect Fold merit ability'},
             {'once','Will roll both rolls once then go back to idle'}
           });
       elseif cmd[1] == "debug" then
@@ -744,6 +767,42 @@ ashita.events.register('command', 'command_cb', function(e)
       elseif cmd[1]=="once" then
         RollerMessage('Will roll until both rolls are up.')
         once = true
+      elseif cmd[1]=="snakeeye" then
+        if cmd[2]=="on" then
+          RollerMessage('Snake Eye manually enabled.')
+          settings.hasSnakeEye = true
+        elseif cmd[2]=="off" then
+          RollerMessage('Snake Eye manually disabled.')
+          settings.hasSnakeEye = false
+        elseif cmd[2]=="auto" then
+          RollerMessage('Snake Eye set to auto-detect.')
+          settings.hasSnakeEye = nil
+        else
+          if hasSnakeEye then
+            RollerMessage('Snake Eye: Available')
+          else
+            RollerMessage('Snake Eye: Not Available')
+          end
+        end
+        save_config()
+      elseif cmd[1]=="fold" then
+        if cmd[2]=="on" then
+          RollerMessage('Fold manually enabled.')
+          settings.hasFold = true
+        elseif cmd[2]=="off" then
+          RollerMessage('Fold manually disabled.')
+          settings.hasFold = false
+        elseif cmd[2]=="auto" then
+          RollerMessage('Fold set to auto-detect.')
+          settings.hasFold = nil
+        else
+          if hasFold then
+            RollerMessage('Fold: Available')
+          else
+            RollerMessage('Fold: Not Available')
+          end
+        end
+        save_config()
       end
     end
     return true;
@@ -789,7 +848,7 @@ ashita.events.register('packet_in', 'packet_in_cb', function(e)
             nextAction = "idle"
             return false
             --If roll is lucky or 11 returns.
-          elseif (rollNum == rollInfo[rollID].stats[14] and (not settings.gamble or (not lastRoll == 11 and foldRecast > 0) or rollCrooked)) or rollNum == 11 then
+          elseif (rollNum == rollInfo[rollID].stats[14] and (not settings.gamble or (not lastRoll == 11 and hasFold and foldRecast > 0) or rollCrooked)) or rollNum == 11 then
             DebugMessage("Lucky or 11, done!")
             nextAction = "idle"
             RollerMessage(rollname .. " final roll: " .. rollNum)
@@ -801,7 +860,7 @@ ashita.events.register('packet_in', 'packet_in_cb', function(e)
 
           if mainjob == 17 then
             if settings.gamble and lastRoll == 11 then
-              if snakeRecast == 0 and (rollNum == 10 or (rollNum == (rollInfo[rollID].stats[14]-1) and rollCrooked)) then
+              if hasSnakeEye and snakeRecast == 0 and (rollNum == 10 or (rollNum == (rollInfo[rollID].stats[14]-1) and rollCrooked)) then
                 DebugMessage("Using Snake Eye for 11 or crooked lucky ")
                 nextAction = "snakeeye";
               else
@@ -809,19 +868,19 @@ ashita.events.register('packet_in', 'packet_in_cb', function(e)
                 nextAction = "doubleup"
               end
             else
-              if snakeRecast == 0 and (rollNum == 10 or (rollNum == (rollInfo[rollID].stats[14]-1) and (not settings.gamble or rollCrooked))) then
+              if hasSnakeEye and snakeRecast == 0 and (rollNum == 10 or (rollNum == (rollInfo[rollID].stats[14]-1) and (not settings.gamble or rollCrooked))) then
                 DebugMessage("Using Snake Eye for lucky or 11, will only go for 11 if gamble mode is on, unless crooked")
                 nextAction = "snakeeye"
-              elseif snakeRecast == 0 and (foldRecast > 0 or (rollCrooked and not settings.gamble)) and rollNum == rollInfo[rollID].stats[15] then
+              elseif hasSnakeEye and snakeRecast == 0 and (not hasFold or foldRecast > 0 or (rollCrooked and not settings.gamble)) and rollNum == rollInfo[rollID].stats[15] then
                 DebugMessage("Using Snake Eye to remove unlucky if fold is down or if this is a crooked roll")
                 nextAction = "snakeeye"
-              elseif foldRecast == 0 and (not rollCrooked or settings.gamble) then
+              elseif hasFold and foldRecast == 0 and (not rollCrooked or settings.gamble) then
                 DebugMessage("Trying our luck because roll is not crooked and we have fold up, will ignore crooked if gamble mode is on")
                 nextAction = "doubleup"
               elseif rollNum < 6 then
                 DebugMessage("Rolling because roll is smaller than 6")
                 nextAction = "doubleup"
-              elseif haveRoll1 and haveRoll2 and snakeRecast == 0 and rollNum+1 ~= rollInfo[rollID].stats[15] and os.time()-roll1RollTime<240 and os.time()-roll2RollTime<240 then
+              elseif hasSnakeEye and haveRoll1 and haveRoll2 and snakeRecast == 0 and rollNum+1 ~= rollInfo[rollID].stats[15] and os.time()-roll1RollTime<240 and os.time()-roll2RollTime<240 then
                 DebugMessage("Trying our luck with Snake Eye because this is the last roll and rollnumber+1 is not unlucky, Snake Eye will be back for next roll")
                 nextAction = "snakeeye"
               else
@@ -924,13 +983,13 @@ function doRoll()
       nextAction = "randomdeal"
       return  
       --OLD BEHAVIOR - Fold or Snake Eye
-    elseif mainjob == 17 and phantomRecast == 0 and (foldRecast > 0 or snakeRecast > 0) and randomDealRecast == 0 and settings.randomdeal and settings.oldrandomdeal then
+    elseif mainjob == 17 and phantomRecast == 0 and ((hasFold and foldRecast > 0) or (hasSnakeEye and snakeRecast > 0)) and randomDealRecast == 0 and settings.randomdeal and settings.oldrandomdeal then
       DebugMessage("Using Random Deal to reset Fold or Snake Eye")
       nextAction = "randomdeal"
       return  
     end
 
-    if mainjob == 17 and haveBust and foldRecast == 0 then 
+    if mainjob == 17 and haveBust and hasFold and foldRecast == 0 then 
       DebugMessage("We busted, folding")
       nextAction = "fold"
       return
@@ -1018,6 +1077,28 @@ function updateRecast()
       end
     end
     return 0;
+  end
+  
+  --Helper function to check if player has learned an ability
+  local function hasAbility(abilityId)
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    if not player then return false end
+    
+    -- Check if ability is in the player's learned abilities
+    return player:HasAbility(abilityId)
+  end
+  
+  -- Check merit ability availability (auto-detect if not manually set)
+  if settings.hasSnakeEye == nil then
+    hasSnakeEye = hasAbility(177) -- Snake Eye JA ID
+  else
+    hasSnakeEye = settings.hasSnakeEye
+  end
+  
+  if settings.hasFold == nil then
+    hasFold = hasAbility(178) -- Fold JA ID  
+  else
+    hasFold = settings.hasFold
   end
   
   --Recasts&Infos
