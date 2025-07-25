@@ -11,6 +11,7 @@
 ![PetInfo vs PetTP Comparison](comparison2.png)
 
 **Left:** PetTP - Traditional text-based display
+
 **Right:** PetInfo - Clean GUI-style display with target tracking  
 
 *This addon successfully recreates Ashita's polished interface while running on Windower!*
