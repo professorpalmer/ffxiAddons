@@ -8,7 +8,7 @@
 
 ## Visual Comparison
 
-![PetInfo vs PetTP Comparison](comparison.png)
+![PetInfo vs PetTP Comparison](comparison2.png)
 
 **Top:** PetInfo - Clean GUI-style display with target tracking  
 **Bottom:** PetTP - Traditional text-based display
