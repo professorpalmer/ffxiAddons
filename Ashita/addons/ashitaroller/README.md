@@ -12,6 +12,7 @@ FFXI Addon for Ashita v4 - Automated COR Rolling with Subjob Support
 - ✅ **Subjob COR support** - Works when COR is your subjob (THF/COR, etc.)
 - ✅ **Smart subjob behavior** - Single roll only, less aggressive double-ups (1-4 only)
 - ✅ **Automatic mode detection** - Recognizes main vs subjob COR automatically
+- ✅ **Merit ability auto-detection** - Detects Snake Eye and Fold availability automatically
 - ✅ **Enhanced status display** - Shows current mode and job info
 - ✅ **Self-contained** - Single file, no external dependencies
 
@@ -21,6 +22,7 @@ FFXI Addon for Ashita v4 - Automated COR Rolling with Subjob Support
 - **Automatic corsair rolling** for both main and subjob COR
 - **Intelligent double-up logic** based on your job setup
 - **Roll management** with Crooked Cards, Fold, Snake Eye, Random Deal support
+- **Merit ability detection** - Automatically detects and uses only available abilities
 - **Zone-safe** - Automatically stops/resumes on zone changes
 
 ### Job Mode Support
@@ -33,6 +35,7 @@ FFXI Addon for Ashita v4 - Automated COR Rolling with Subjob Support
 - **Quick Mode** - Fast setup for short content (Ambuscade, etc.)
 - **Gamble Mode** - Maintains double 11s using bust immunity (ML parties)
 - **Party Alerts** - Optional countdown warnings
+- **Merit Ability Detection** - Auto-detects Snake Eye and Fold availability
 - **Stealth Detection** - Pauses while Sneak/Invisible
 
 ## Commands
@@ -60,8 +63,29 @@ FFXI Addon for Ashita v4 - Automated COR Rolling with Subjob Support
 /roller oldrandomdeal on/off - Focus: on=Snake Eye/Fold, off=Crooked Cards
 /roller gamble on/off      - Abuse bust immunity for double 11s
 /roller partyalert on/off  - Party countdown messages
+/roller snakeeye on/off/auto - Enable/disable/auto-detect Snake Eye merit ability
+/roller fold on/off/auto   - Enable/disable/auto-detect Fold merit ability
 /roller once              - Roll once then stop
 /roller display on/off    - Toggle GUI overlay
+```
+
+### Merit Abilities
+The addon automatically detects whether you have Snake Eye and Fold merit abilities:
+- **Auto-detection (default)** - Checks your learned abilities dynamically
+- **Manual override** - Use commands if auto-detection fails
+- **Real-time updates** - Learns new abilities immediately when merited
+- **Error prevention** - Never attempts to use abilities you don't have
+
+```
+/roller snakeeye          - Check current Snake Eye status
+/roller snakeeye auto     - Enable auto-detection (default)
+/roller snakeeye on       - Force enable (manual override)
+/roller snakeeye off      - Force disable (manual override)
+
+/roller fold              - Check current Fold status  
+/roller fold auto         - Enable auto-detection (default)
+/roller fold on           - Force enable (manual override)
+/roller fold off          - Force disable (manual override)
 ```
 
 ## Usage Examples
@@ -119,6 +143,5 @@ Use `/roller` to verify your current mode is detected correctly.
 
 ---
 *For bugs or feature requests, contact Palmer on Asura or submit an issue.*
-```
 
 You can **safely delete** `buffsmap.lua` and `job_abilities.lua` - they're no longer needed since everything is self-contained in the main file now!
