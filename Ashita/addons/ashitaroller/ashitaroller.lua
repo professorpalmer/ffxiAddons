@@ -960,7 +960,7 @@ function doRoll()
         nextRoll = settings.Roll1
         nextAction = "rolling"
       end
-    elseif false then  -- Disabled for subjob compatibility
+    elseif mainjob == 17 and not haveRoll2 and phantomRecast == 0 then
       DebugMessage("We don't have roll 2 buff, trying roll2")
       roll2RollTime = os.time();
       if settings.partyalert then
@@ -968,7 +968,7 @@ function doRoll()
       end
       rollCrooked = false
       rollerTimeout = 0
-      if mainjob == 17 and subjob ~= 17 and not haveRoll2 and not haveBust and phantomRecast == 0 then 
+      if mainjob == 17 and mainjob_level > 94 and settings.crooked2 and crookedcardsRecast == 0 then 
         DebugMessage("Using Crooked Cards")
         RollerMessage(rollInfo[settings.Roll2].name .. " Lucky: " .. rollInfo[settings.Roll2].stats[14] .. " Unlucky: " .. rollInfo[settings.Roll2].stats[15])
         rollCrooked = true
