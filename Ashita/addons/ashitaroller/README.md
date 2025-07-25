@@ -130,6 +130,14 @@ The addon automatically detects your setup:
 
 Use `/roller` to verify your current mode is detected correctly.
 
+## GUI Display
+The overlay window shows:
+- **Current rolls** and autoroll status
+- **Job mode** (Main COR, Sub COR, or Not COR)
+- **Settings status** (Engaged, Crooked, Random Deal, etc.)
+- **Merit ability status** (Snake Eye: Available/Not Learned, Fold: Available/Not Learned)
+- **Current mode indicators** for all major features
+
 ## Compatibility
 - **Ashita v4 only** (use v0.3 for Ashita v3)
 - **FFXI Retail** tested on multiple servers
@@ -139,7 +147,7 @@ Use `/roller` to verify your current mode is detected correctly.
 - **Original concept:** Noobcakes (Windower Roller)
 - **Ashita v3 port:** towbes, matix  
 - **v0.3 improvements:** Lumlum
-- **v0.4 Ashita4 port & subjob support:** Palmer (Zodiarchy @ Asura)
+- **v0.4 Ashita4 port / new features :** Palmer (Zodiarchy @ Asura)
 
 ---
 *For bugs or feature requests, contact Palmer on Asura or submit an issue.*
