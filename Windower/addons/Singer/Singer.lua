@@ -18,7 +18,8 @@ default = {
     delay=4,
     marcato='Sentinel\'s Scherzo',
     soul_voice=false,
-    clarion=false,
+    clarion=true,
+    clarion_immediate=false,
     actions=false,
     pianissimo=false,
     nightingale=true,
@@ -112,7 +113,7 @@ function colorize(row, str)
     return '\\cs(0,255,0)%s\\cr':format(str)
 end
 
-local buttons = {'active','actions','nightingale','troubadour','pianissimo','debuffing','party','p1','p2','p3','p4','p5'}
+    local buttons = {'active','actions','nightingale','troubadour','clarion','pianissimo','debuffing','party','p1','p2','p3','p4','p5'}
 
 local display_box = function()
     local str = colorize(1, 'Singer')
@@ -122,9 +123,11 @@ local display_box = function()
 
     str = str..colorize(3, '\n Nightingale:[%s]':format(settings.nightingale and 'On' or 'Off'))
     str = str..colorize(4, '\n Troubadour:[%s]':format(settings.troubadour and 'On' or 'Off'))
-    str = str..colorize(5, '\n Pianissimo:[%s]':format(settings.pianissimo and 'On' or 'Off'))
-    str = str..colorize(6, '\n Debuffing:[%s]':format(settings.debuffing and 'On' or 'Off'))
-    str = str..colorize(7, '\n AoE: [%s]':format(settings.aoe.party and 'On' or 'Off'))
+    str = str..colorize(5, '\n Clarion Call:[%s]%s':format(settings.clarion and 'On' or 'Off', 
+        settings.clarion_immediate and ' (Immediate)' or ' (Smart)'))
+    str = str..colorize(6, '\n Pianissimo:[%s]':format(settings.pianissimo and 'On' or 'Off'))
+    str = str..colorize(7, '\n Debuffing:[%s]':format(settings.debuffing and 'On' or 'Off'))
+    str = str..colorize(8, '\n AoE: [%s]':format(settings.aoe.party and 'On' or 'Off'))
 
     if settings.aoe.party then
         for x = 1, 5 do
@@ -421,6 +424,7 @@ short_commands = {
     ['p'] = 'pianissimo',
     ['n'] = 'nightingale',
     ['t'] = 'troubadour',
+    ['c'] = 'clarion',
     ['play'] = 'playlist',
 }
 

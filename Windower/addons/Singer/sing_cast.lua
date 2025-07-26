@@ -37,7 +37,15 @@ function cast.check_song(song_list,targ,buffs,spell_recasts,recasts,JA_WS_lock,r
             (buffs['soul voice'] and not timers[targ][song.enl].sv) or
             (troubadour_sync_mode and buffs.troubadour and ta == '<me>')) then
 
-            if ta == '<me>' and settings.nightingale and not JA_WS_lock and not buffs.nightingale and recasts[109] <= 0 and recasts[110] <= 0 then
+            if ta == '<me>' and settings.clarion and not JA_WS_lock and not buffs['clarion call'] and recasts[111] <= 0 and 
+               currsongs >= basesongs and #song_list > currsongs and
+               -- Smart timing: Only use Clarion when we can stack it with NiTro for maximum benefit
+               -- OR when immediate mode is enabled (manual override)
+               (settings.clarion_immediate or 
+                ((not settings.troubadour or buffs.troubadour or recasts[110] > 0) and
+                 (not settings.nightingale or buffs.nightingale or recasts[109] > 0))) then
+                cast.JA('input /ja "Clarion Call" <me>')
+            elseif ta == '<me>' and settings.nightingale and not JA_WS_lock and not buffs.nightingale and recasts[109] <= 0 and recasts[110] <= 0 then
                 cast.JA('input /ja "Nightingale" <me>')
             elseif ta == '<me>' and settings.troubadour and not JA_WS_lock and not buffs.troubadour and recasts[110] <= 0 then
                 troubadour_sync_mode = true  -- Activate sync mode to force all songs into Troubadour window

@@ -21,6 +21,8 @@ Accepts auto-translated terms.
 	//sing pianissimo [on|off]          -  Toggle pianissimo usage, can be shortened to p.
 	//sing nightingale [on|off]         -  Toggle nightingale usage, can be shortened to n.
 	//sing troubadour [on|off]          -  Toggle troubadour usage, can be shortened to t.
+	//sing clarion [on|off]             -  Toggle clarion call usage, can be shortened to c.
+	//sing clarion_immediate [on|off]   -  Use clarion immediately vs waiting for NiTro window.
 	//sing delay <n>                    -  [n] second delay between song casting.
 	//sing recast song <min> <max>      -  Begin recasting songs between <min> and <max> seconds before they wear.
 	//sing recast buff <min> <max>      -  Same as the above for haste and refresh.
