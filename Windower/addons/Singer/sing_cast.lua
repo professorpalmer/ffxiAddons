@@ -34,11 +34,14 @@ function cast.check_song(song_list,targ,buffs,spell_recasts,recasts,JA_WS_lock,r
             (not timers[targ] or not timers[targ][song.enl] or
             os.time() - timers[targ][song.enl].ts + recast > 0 or
             (buffs.troubadour and not timers[targ][song.enl].nt) or
-            (buffs['soul voice'] and not timers[targ][song.enl].sv)) then
+            (buffs['soul voice'] and not timers[targ][song.enl].sv) or
+            (troubadour_sync_mode and buffs.troubadour and ta == '<me>')) then
 
             if ta == '<me>' and settings.nightingale and not JA_WS_lock and not buffs.nightingale and recasts[109] <= 0 and recasts[110] <= 0 then
                 cast.JA('input /ja "Nightingale" <me>')
             elseif ta == '<me>' and settings.troubadour and not JA_WS_lock and not buffs.troubadour and recasts[110] <= 0 then
+                troubadour_sync_mode = true  -- Activate sync mode to force all songs into Troubadour window
+                troubadour_sync_timeout = os.time() + 30  -- 30 second timeout for safety
                 cast.JA('input /ja "Troubadour" <me>')
             elseif ta == '<me>' and not JA_WS_lock and song.enl == settings.marcato and not buffs.marcato and not buffs['soul voice'] and recasts[48] <= 0 then
                 cast.JA('input /ja "Marcato" <me>')

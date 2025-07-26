@@ -201,6 +201,11 @@ function song_timers.create(song,targ,dur,current_time,buffs)
     timers[targ][song] = {ts=current_time+dur,nt=buffs.troubadour,sv=buffs['soul voice']}
     if timers.AoE[song] and targ ~= 'AoE' or not settings.timers then return end
     windower.send_command('timers create "%s [%s]" %s down':format(song,targ,dur))
+    
+    -- Check if sync mode should be disabled after successful Troubadour casts
+    if troubadour_sync_mode and buffs.troubadour and targ ~= 'AoE' then
+        song_timers.check_sync_completion(targ)
+    end
 end
 
 function song_timers.adjust(spell_name,targ,buffs)
@@ -228,6 +233,25 @@ function song_timers.adjust(spell_name,targ,buffs)
     end
 end
 
+function song_timers.check_sync_completion(targ)
+    -- Check if all current songs for this target now have Troubadour flag
+    if not timers[targ] then return end
+    
+    local all_synced = true
+    for song_name, timer_data in pairs(timers[targ]) do
+        if not timer_data.nt then  -- nt = nightingale/troubadour flag
+            all_synced = false
+            break
+        end
+    end
+    
+    -- If all songs are now synchronized with Troubadour, disable sync mode
+    if all_synced then
+        troubadour_sync_mode = false
+        troubadour_sync_timeout = 0
+    end
+end
+
 function song_timers.reset(bool)
     for k,targ in pairs(timers) do
         for i,v in pairs(targ) do
@@ -237,6 +261,8 @@ function song_timers.reset(bool)
     if bool then return end
     timers = {AoE={},buffs={Haste={},Refresh={}}}
     casting = false
+    troubadour_sync_mode = false  -- Reset sync mode on timer reset
+    troubadour_sync_timeout = 0   -- Reset timeout as well
 end
 
 return song_timers

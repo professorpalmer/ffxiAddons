@@ -98,6 +98,8 @@ end
 
 del = 0
 counter = 0
+troubadour_sync_mode = false  -- Flag to force all songs into Troubadour window
+troubadour_sync_timeout = 0   -- Safety timeout for sync mode
 timers = {AoE={}, buffs={}}
 party = get.party()
 buffs = get.buffs()
@@ -213,6 +215,11 @@ function do_stuff()
         local spell_recasts = windower.ffxi.get_spell_recasts()
         local ability_recasts = windower.ffxi.get_ability_recasts()
         local recast = settings.recast.song.min
+
+        -- Safety timeout check for sync mode
+        if troubadour_sync_mode and os.time() >= troubadour_sync_timeout then
+            troubadour_sync_mode = false
+        end
 
         for k, v in pairs(timers) do
             song_timers.update(k)
@@ -365,6 +372,12 @@ windower.register_event('incoming chunk', function(id,data,modified,injected,blo
                 set_time[buff_en] = math.floor(buff_ts / 60 + bufftime_offset)
             end
         end
+        -- Check if Troubadour buff was lost during sync mode
+        if troubadour_sync_mode and not set_buff.troubadour then
+            troubadour_sync_mode = false
+            troubadour_sync_timeout = 0
+        end
+        
         buffs = set_buff
         times = set_time
 
@@ -740,6 +753,8 @@ function event_change()
     settings.actions = false
     debuffed = {}
     song_timers.reset()
+    troubadour_sync_mode = false  -- Reset sync mode on any major event
+    troubadour_sync_timeout = 0   -- Reset timeout as well
     bard_status:text(display_box())
 end
 
