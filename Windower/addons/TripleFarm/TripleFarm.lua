@@ -8,6 +8,9 @@ require('coroutine')
 packets = require('packets')
 res = require('resources')
 
+-- Auto-load SuperWarp dependency
+windower.send_command('lua load superwarp')
+
 -- Constants
 local BUFFS = {
 	ELVORSEAL = 603,
@@ -165,13 +168,23 @@ function teleportToNextBoss()
 	local boss_config = getCurrentBoss()
 	local teleport_ring = boss_config.teleport_ring
 	
+	-- Step 1: Use ring to warp out
 	if getEquippedItem('right_ring') ~= teleport_ring then
 		windower.send_command('wait 3;input /equip ring2 "'..teleport_ring..'"')
 		windower.send_command('wait 6;input /item "'..teleport_ring..'" <me>')
 	else
 		windower.send_command('wait 3;input /item "'..teleport_ring..'" <me>')
 	end
-	delay = 30
+	
+	-- Step 2: Use SuperWarp to travel to correct zone (after ring teleport)
+	if current_boss == "NAGA" then
+		windower.send_command('wait 8;hp misareaux')  -- Travel to Misareaux Coast
+	elseif current_boss == "AZI" then  
+		windower.send_command('wait 8;hp qufim')      -- Travel to Qufim Island
+	end
+	-- Note: Quetz uses Dim Ring directly to Reisenjima areas, no SuperWarp needed
+	
+	delay = 35  -- Extra time for SuperWarp travel
 end
 
 -- Check if we're in the right zone for current boss

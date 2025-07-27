@@ -27,9 +27,14 @@ The script can either focus on a single boss or automatically rotate between all
 - **Dim. Ring (Holla)** - For Quetzalcoatl farming
 - **Warp Ring** - For Azi Dahaka and Naga Raja farming
 
-### Required Home Points
-- **Qufim Island** - Set as home point for Azi Dahaka farming
-- **Misareaux Coast** - Set as home point for Naga Raja farming
+### Required Addons
+- **SuperWarp** - For automatic homepoint travel between zones
+  - Place the `superwarp` folder in your `Windower/addons/` directory
+  - Load with: `//lua load superwarp`
+
+### Home Point Setup
+- **Any home point** - Can be set anywhere (script uses SuperWarp to travel)
+- **No specific home point required** - SuperWarp handles zone transitions
 
 ### Trust Setup
 Configure your trust names in the script variables:
@@ -44,8 +49,44 @@ local trust5 = 'Nashmeira II'
 ## Installation
 
 1. Place `TripleFarm.lua` in your `Windower/addons/` directory
-2. Load the addon: `//lua load TripleFarm`
-3. Configure your settings (see Configuration section)
+2. Install **SuperWarp** addon (required dependency):
+   - Place the `superwarp` folder in your `Windower/addons/` directory
+   - **No need to load manually** - TripleFarm auto-loads it
+3. Load TripleFarm: `//lua load TripleFarm` (this will auto-load SuperWarp)
+4. Configure your settings (see Configuration section)
+
+## First Time Setup
+
+**IMPORTANT**: The script starts **PAUSED** by default for safety.
+
+### Quick Start (First Time)
+```
+//lua load TripleFarm          # Load the script
+//tf status                    # Check current settings
+//tf boss azi                  # Pick your boss (optional)
+//tf start                     # START FARMING (required!)
+```
+
+### With Website Integration (Recommended Strategy)
+
+**Use [whereisdi.com](https://whereisdi.com/) to optimize your farming!**
+
+1. **Visit whereisdi.com** and check **Asura server** status
+2. **Look for Domain Invasion bosses**:
+   - **Escha - Zi'Tah**: Azi Dahaka, heralded by an army of Azi Dahaka's Dragons
+   - **Escha - Ru'Aun**: Naga Raja, heralded by an army of Naga Raja's Lamia  
+   - **Reisenjima**: Quetzalcoatl, heralded by an army of Quetzalcoatl's Sibilus
+3. **Pick optimal boss** (just started, good time remaining, avoid "ending soon")
+4. **Switch to that boss**: `//tf boss <name>` (quetz/azi/naga)
+5. **Start farming**: `//tf start` ← **YOU MUST RUN THIS**
+
+**Website Strategy Tips**:
+- **"Just Started"** = Perfect time to farm (full duration remaining)
+- **"Ending Soon"** = Avoid or switch to another boss
+- **Multiple good options** = Use default rotation or pick your favorite
+- **All ending soon** = Wait 5-10 minutes for fresh spawns
+
+**Note**: `//tf boss <name>` only switches the target boss but keeps the script paused. You ALWAYS need `//tf start` to begin automation.
 
 ## Commands
 
@@ -68,10 +109,28 @@ local trust5 = 'Nashmeira II'
 ### Examples
 ```
 //tf start                    # Start rotation farming
-//tf boss azi                 # Switch to only Azi Dahaka
+//tf boss azi                 # Switch to Azi Dahaka (stays paused)
+//tf start                    # ← REQUIRED after switching boss!
 //tf rotation off             # Disable rotation
 //tf kills 3                  # Set 3 kills per boss
 //tf next                     # Force move to next boss
+```
+
+### Website Integration Workflow
+```
+# 1. Check whereisdi.com for Asura server
+# 2. See "Azi Dahaka just started" - perfect timing!
+//tf boss azi                # Switch to Azi Dahaka
+//tf start                   # Begin farming
+
+# OR if you want single boss mode:
+//tf rotation off            # Disable rotation  
+//tf boss naga               # Switch to Naga Raja
+//tf start                   # Begin farming
+
+# Real-time adjustments during farming:
+//tf next                    # Skip to next boss if current one "ending soon"
+//tf stop                    # Pause if all bosses ending soon
 ```
 
 ## How It Works
@@ -156,10 +215,11 @@ Each boss has predefined waiting positions. The script adds random offsets to av
 ## Troubleshooting
 
 ### Script Not Working
-1. Check that you have the required rings equipped or in inventory
-2. Verify home points are set correctly (Qufim, Misareaux Coast)
+1. **Check SuperWarp**: Make sure SuperWarp folder is in your addons directory (auto-loaded by TripleFarm)
+2. Check that you have the required rings equipped or in inventory
 3. Make sure you're in a valid starting zone
 4. Check trust names match your available trusts
+5. **Test SuperWarp**: Try `//hp misareaux` manually to ensure it works
 
 ### Boss Not Found
 - Ensure you're in the correct zone for the current boss
@@ -177,11 +237,14 @@ Each boss has predefined waiting positions. The script adds random offsets to av
 
 ## Tips
 
-1. **Start Fresh**: Begin farming from a home point or major city
-2. **Monitor First Run**: Watch the first rotation to ensure smooth transitions
-3. **Check Inventory**: Ensure adequate inventory space for drops
-4. **Trust Recasts**: Script waits for trust recast timers automatically
-5. **Home Points**: Set appropriate home points before starting
+1. **Use whereisdi.com**: Always check Domain Invasion status before starting
+2. **Start Fresh**: Begin farming from a home point or major city
+3. **Monitor First Run**: Watch the first rotation to ensure smooth transitions
+4. **Check Inventory**: Ensure adequate inventory space for drops
+5. **Trust Recasts**: Script waits for trust recast timers automatically
+6. **Home Points**: Set appropriate home points before starting
+7. **Real-time Strategy**: Use `//tf next` if website shows current boss "ending soon"
+8. **Patience Pays**: If all bosses ending soon, wait for fresh spawns rather than wasting time
 
 ## Original Scripts Credit
 
