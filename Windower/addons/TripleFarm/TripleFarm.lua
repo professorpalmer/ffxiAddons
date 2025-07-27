@@ -1,5 +1,5 @@
-_addon.author   = 'Erupt - Modified by Assistant'
-_addon.version  = '3.0'
+_addon.author   = 'Palmer (Zodiarchy @ Asura)'
+_addon.version  = '1.0'
 _addon.commands = {'TripleFarm', 'tf'}
 
 require 'logger'
