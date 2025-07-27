@@ -347,44 +347,21 @@ function enterArena()
 			packets.inject(p)
 		end
 	else
-		-- Azi and Naga use target-lock approach for reliability
-		if npc then
-			local distance = math.sqrt(npc.distance)
-			
-			-- Step 1: Target and lock onto the NPC first
-			if not running then
-				log('Targeting ' .. boss_config.npc_name .. ' (distance: ' .. string.format("%.1f", distance) .. ')')
-				windower.ffxi.set_target(npc.index)
-				windower.send_command('wait 1;input /lockon')
-				running = true
-				delay = 3  -- Wait for lock-on to complete
-				return
-			end
-			
-			-- Step 2: Once locked on, move towards NPC
-			if distance > DISTANCES.CLOSE_INTERACTION then
-				log('Moving to ' .. boss_config.npc_name .. ' (locked on, distance: ' .. string.format("%.1f", distance) .. ')')
-				windower.ffxi.run(npc.x - me.x, npc.y - me.y)
-			else
-				-- Step 3: Close enough, stop and interact
-				windower.ffxi.run(false)
-				running = false
-				log('Interacting with ' .. boss_config.npc_name)
-				local p = packets.new('outgoing', 0x01A, {
-					['Target'] = npc.id,
-					['Target Index'] = npc.index,
-				})
-				busy = true
-				packets.inject(p)
-			end
-		else
-			-- NPC not found, reset and try again
-			if running then
-				windower.ffxi.run(false)
-				running = false
-			end
-			log('Cannot find ' .. boss_config.npc_name .. ', retrying...')
-			delay = 3
+		-- Azi and Naga use same logic as portal targeting for reliability
+		if npc and math.sqrt(npc.distance) > DISTANCES.INTERACTION and not running then
+			log('Moving to ' .. boss_config.npc_name)
+			windower.ffxi.run(npc.x - me.x, npc.y - me.y)
+			running = true
+		elseif npc and math.sqrt(npc.distance) <= DISTANCES.INTERACTION then
+			windower.ffxi.run(false)
+			running = false
+			log('Interacting with ' .. boss_config.npc_name)
+			local p = packets.new('outgoing', 0x01A, {
+				['Target'] = npc.id,
+				['Target Index'] = npc.index,
+			})
+			busy = true
+			packets.inject(p)
 		end
 	end
 	
@@ -401,6 +378,14 @@ function moveToLocation()
 	local me = windower.ffxi.get_mob_by_target('me')
 	if not me then
 		log('Error: Cannot get player position')
+		return
+	end
+	
+	-- Don't move if boss is defeated - wait for Elvorseal to expire
+	if boss_defeated then
+		windower.ffxi.run(false)
+		log('Boss defeated, waiting for Elvorseal to expire...')
+		delay = 3
 		return
 	end
 	
@@ -442,18 +427,24 @@ function fight()
 				current_kills = current_kills + 1
 				boss_defeated = true
 				fighting = false
+				waiting = false  -- Stop waiting state when boss dies
 				log(boss_config.boss_name .. ' defeated! Kill count: ' .. current_kills)
+				-- Stop any movement when boss dies
+				windower.ffxi.run(false)
+				delay = 5  -- Brief delay before checking what to do next
+				return
 			end
 		end
 		
-		if waiting and player.status == 0 then
+		-- Don't summon trusts or do other actions if boss is defeated
+		if not boss_defeated and waiting and player.status == 0 then
 			if summonTrust() ~= false and not isBuffActive(BUFFS.SILENCE) and not isBuffActive(BUFFS.SLEEP) then
 				windower.send_command('input /ma "'..summonTrust()..'" <me>')
 			end
 			delay = 3
 		end
 
-		if player.status == 0 and isBuffActive(BUFFS.ELVORSEAL) and fighting then
+		if player.status == 0 and isBuffActive(BUFFS.ELVORSEAL) and fighting and not boss_defeated then
 			local engage_packet = packets.new('outgoing', 0x01A, {
 				['Target'] = boss.id,
 				['Target Index'] = boss.index,
@@ -461,13 +452,10 @@ function fight()
 			})
 			packets.inject(engage_packet)
 			delay = 1
-		elseif math.sqrt(boss.distance) > DISTANCES.COMBAT and player.status == 1 and fighting then
-			local target = windower.ffxi.get_mob_by_index(player.target_index or 0)
-			local self_vector = windower.ffxi.get_mob_by_index(player.index or 0)
-			local angle = (math.atan2((target.y - self_vector.y), (target.x - self_vector.x))*180/math.pi)*-1
-			windower.ffxi.turn((angle):radian())
-			windower.ffxi.run(true)
-		elseif math.sqrt(boss.distance) <= DISTANCES.COMBAT and player.status == 1 and fighting and not partymembers then
+		elseif math.sqrt(boss.distance) > DISTANCES.COMBAT and player.status == 1 and fighting and not boss_defeated then
+			local me = windower.ffxi.get_mob_by_target('me')
+			windower.ffxi.run(boss.x - me.x, boss.y - me.y)
+		elseif math.sqrt(boss.distance) <= DISTANCES.COMBAT and player.status == 1 and fighting and not partymembers and not boss_defeated then
 			windower.ffxi.run(false)
 			if summonTrust() ~= false and not isBuffActive(BUFFS.SILENCE) and not isBuffActive(BUFFS.SLEEP) then
 				windower.send_command('input /ma "'..summonTrust()..'" <me>')
