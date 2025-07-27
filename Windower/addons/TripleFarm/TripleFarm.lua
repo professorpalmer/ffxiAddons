@@ -347,25 +347,53 @@ function enterArena()
 			packets.inject(p)
 		end
 	else
-		-- Azi and Naga use distance-based approach
-		if npc and math.sqrt(npc.distance) > DISTANCES.CLOSE_INTERACTION and not running then
-			log('Entering ' .. boss_config.target_zone .. ' arena')
-			windower.ffxi.run(npc.x - me.x, npc.y - me.y)
-			running = true
-		elseif npc and math.sqrt(npc.distance) <= DISTANCES.CLOSE_INTERACTION then
-			windower.ffxi.run(false)
-			running = false
-			local p = packets.new('outgoing', 0x01A, {
-				['Target'] = npc.id,
-				['Target Index'] = npc.index,
-			})
-			busy = true
-			packets.inject(p)
+		-- Azi and Naga use target-lock approach for reliability
+		if npc then
+			local distance = math.sqrt(npc.distance)
+			
+			-- Step 1: Target and lock onto the NPC first
+			if not running then
+				log('Targeting ' .. boss_config.npc_name .. ' (distance: ' .. string.format("%.1f", distance) .. ')')
+				windower.ffxi.set_target(npc.index)
+				windower.send_command('wait 1;input /lockon')
+				running = true
+				delay = 3  -- Wait for lock-on to complete
+				return
+			end
+			
+			-- Step 2: Once locked on, move towards NPC
+			if distance > DISTANCES.CLOSE_INTERACTION then
+				log('Moving to ' .. boss_config.npc_name .. ' (locked on, distance: ' .. string.format("%.1f", distance) .. ')')
+				windower.ffxi.run(npc.x - me.x, npc.y - me.y)
+			else
+				-- Step 3: Close enough, stop and interact
+				windower.ffxi.run(false)
+				running = false
+				log('Interacting with ' .. boss_config.npc_name)
+				local p = packets.new('outgoing', 0x01A, {
+					['Target'] = npc.id,
+					['Target Index'] = npc.index,
+				})
+				busy = true
+				packets.inject(p)
+			end
+		else
+			-- NPC not found, reset and try again
+			if running then
+				windower.ffxi.run(false)
+				running = false
+			end
+			log('Cannot find ' .. boss_config.npc_name .. ', retrying...')
+			delay = 3
 		end
 	end
 	
 	windower.send_command('setkey escape down;wait 0.5;setkey escape up')
-	delay = 5
+	if not busy then
+		delay = 1  -- Shorter delay for movement updates
+	else
+		delay = 5
+	end
 end
 
 -- Move to waiting location
@@ -722,10 +750,12 @@ windower.register_event('zone change', function(new, old)
 	local boss_config = getCurrentBoss()
 	
 	if zone == boss_config.target_zone then
-		delay = 20
+		log('Entering ' .. zone .. ', waiting for everything to load...')
+		delay = 25  -- Longer delay for target zones to ensure NPCs load
 	elseif zone == "Qufim Island" or zone == "Misareaux Coast" then
 		log('Don\'t forget to set your HP here!!!')
-		delay = 15
+		log('Waiting for zone to fully load before proceeding...')
+		delay = 20  -- Longer delay to ensure NPCs like Affi/Dremi load properly
 		inside = false
 		running = false
 		fighting = false
