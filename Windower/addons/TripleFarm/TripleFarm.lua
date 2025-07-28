@@ -11,6 +11,17 @@ res = require('resources')
 -- Auto-load SuperWarp dependency
 windower.send_command('lua load superwarp')
 
+-- Initialize rings on script start
+function initializeRings()
+	log('Initializing rings - equipping Warp Ring and Dim. Ring (Holla)...')
+	windower.send_command('input /equip ring1 "Warp Ring"')
+	windower.send_command('wait 2;input /equip ring2 "Dim. Ring (Holla)"')
+	windower.send_command('wait 3;echo Rings equipped: Left=Warp Ring, Right=Dim. Ring (Holla)')
+end
+
+-- Call ring initialization when script loads
+initializeRings()
+
 -- Constants
 local BUFFS = {
 	ELVORSEAL = 603,
@@ -85,6 +96,7 @@ local fighting = false
 local waiting = false
 local tp = false
 local npc = false
+local portnow = false
 local pause = 'on'
 local current_boss = rotation_order[current_boss_index]
 
@@ -181,14 +193,25 @@ end
 -- Teleport to the next boss area
 function teleportToNextBoss()
 	local boss_config = getCurrentBoss()
-	local teleport_ring = boss_config.teleport_ring
+	local info = windower.ffxi.get_info()
+	local current_zone = res.zones[info.zone].name
 	
-	-- Step 1: Use ring to warp out
-	if getEquippedItem('right_ring') ~= teleport_ring then
-		windower.send_command('wait 3;input /equip ring2 "'..teleport_ring..'"')
-		windower.send_command('wait 6;input /item "'..teleport_ring..'" <me>')
+	-- Check if we're already in the correct zone for this boss
+	if isInCorrectZone(current_zone) then
+		log('Already in correct zone (' .. current_zone .. ') for ' .. boss_config.name .. ', skipping teleport')
+		delay = 5  -- Short delay instead of teleport delay
+		return
+	end
+	
+	-- Use pre-equipped rings - no need to swap anymore
+	if current_boss == "QUETZ" then
+		-- Use Dim. Ring (Holla) - ring2 (right ring)
+		log('Using Dim. Ring (Holla) for Quetzalcoatl...')
+		windower.send_command('wait 3;input /item "Dim. Ring (Holla)" <me>')
 	else
-		windower.send_command('wait 3;input /item "'..teleport_ring..'" <me>')
+		-- Use Warp Ring for Azi and Naga - ring1 (left ring)  
+		log('Using Warp Ring for ' .. boss_config.name .. '...')
+		windower.send_command('wait 3;input /item "Warp Ring" <me>')
 	end
 	
 	-- Step 2: Use SuperWarp to travel to correct zone (after ring teleport)
@@ -282,9 +305,22 @@ windower.register_event('prerender', function()
 			return
 		end
 		
+		-- Safety check: if rotation is enabled and we just defeated a boss, 
+		-- make sure we're not stuck re-entering the same boss arena
+		if rotation_enabled and boss_defeated and current_kills > 0 then
+			local info = windower.ffxi.get_info()
+			local zone = res.zones[info.zone].name
+			-- If we're back in the target zone for the same boss after a defeat, force rotation
+			if zone == boss_config.target_zone and inside then
+				log('Safety: Detected potential loop in ' .. boss_config.name .. ' arena after defeat, forcing next boss...')
+				nextBoss()
+				return
+			end
+		end
+		
 		-- If we're not in the correct zone, teleport there
 		if not isInCorrectZone(zone) then
-			log('Not in correct zone for ' .. boss_config.name .. ', teleporting...')
+			log('Not in correct zone for ' .. boss_config.name .. ' (currently in: ' .. zone .. '), teleporting...')
 			teleportToNextBoss()
 			return
 		end
@@ -487,13 +523,14 @@ function fight()
 			if boss_defeated and current_kills >= kills_per_boss then
 				nextBoss()
 			else
-				-- Re-enter arena for another fight
+				-- Re-enter arena for another fight using pre-equipped rings
 				local boss_config = getCurrentBoss()
-				local teleport_ring = boss_config.teleport_ring
-				if getEquippedItem('right_ring') ~= teleport_ring then
-					windower.send_command('wait 3;input /equip ring2 "'..teleport_ring..'"')
+				if current_boss == "QUETZ" then
+					-- Use pre-equipped Dim. Ring (Holla)
+					windower.send_command('wait 3;input /item "Dim. Ring (Holla)" <me>')
 				else
-					windower.send_command('wait 3;input /item "'..teleport_ring..'" <me>')
+					-- Use pre-equipped Warp Ring for Azi and Naga
+					windower.send_command('wait 3;input /item "Warp Ring" <me>')
 				end
 				delay = 30
 			end
@@ -804,8 +841,21 @@ windower.register_event('addon command', function(...)
 		local boss_config = getCurrentBoss()
 		validateZoneAccess(boss_config.target_zone)
 		
+		-- Check current zone and inform user
+		local info = windower.ffxi.get_info()
+		local current_zone = res.zones[info.zone].name
+		if isInCorrectZone(current_zone) then
+			log('Starting TripleFarm on ' .. boss_config.name .. ' (already in correct zone: ' .. current_zone .. ')')
+		else
+			log('Starting TripleFarm on ' .. boss_config.name .. ' (will teleport from: ' .. current_zone .. ')')
+		end
+		
+		-- Ensure rings are equipped when starting
+		initializeRings()
+		
+		-- Start immediately since rings are likely already equipped
 		pause = 'off'
-		log('Starting TripleFarm on ' .. boss_config.name)
+		log('TripleFarm started!')
 	elseif command[1] == 'rotation' then
 		if command[2] == 'on' then
 			rotation_enabled = true
@@ -818,17 +868,37 @@ windower.register_event('addon command', function(...)
 		end
 	elseif command[1] == 'boss' then
 		if command[2] and BOSSES[string.upper(command[2])] then
-			current_boss = string.upper(command[2])
+			local new_boss = string.upper(command[2])
+			local old_boss = current_boss
+			
+			-- Find the index for the new boss
+			local new_index = 1
 			for i, boss_name in ipairs(rotation_order) do
-				if boss_name == current_boss then
-					current_boss_index = i
+				if boss_name == new_boss then
+					new_index = i
 					break
 				end
 			end
+			
+			-- Update boss state
+			current_boss = new_boss
+			current_boss_index = new_index
 			current_kills = 0
 			boss_defeated = false
+			
+			-- Reset ALL state variables to ensure clean transition
+			inside = false
+			running = false
+			fighting = false
+			waiting = false
+			busy = false
+			tp = false
+			npc = false
+			
+			-- Update wait position and log the change
 			findWaitPosition()
-			log('Switched to: ' .. getCurrentBoss().name)
+			log('Switched from ' .. (old_boss and BOSSES[old_boss].name or 'unknown') .. ' to: ' .. getCurrentBoss().name)
+			log('Rotation index: ' .. current_boss_index .. ' (next will be: ' .. rotation_order[(current_boss_index % #rotation_order) + 1] .. ')')
 		else
 			log('Available bosses: quetz, azi, naga')
 		end
@@ -841,10 +911,23 @@ windower.register_event('addon command', function(...)
 		end
 	elseif command[1] == 'status' then
 		local boss_config = getCurrentBoss()
+		log('=== TripleFarm Status ===')
 		log('Current boss: ' .. boss_config.name)
+		log('Rotation index: ' .. current_boss_index .. '/' .. #rotation_order)
 		log('Kills: ' .. current_kills .. '/' .. kills_per_boss)
 		log('Rotation: ' .. (rotation_enabled and 'enabled' or 'disabled'))
 		log('State: ' .. (pause == 'on' and 'paused' or 'running'))
+		log('Next boss will be: ' .. rotation_order[(current_boss_index % #rotation_order) + 1])
+		
+		-- Show current state flags
+		local states = {}
+		if inside then table.insert(states, 'inside') end
+		if running then table.insert(states, 'running') end
+		if fighting then table.insert(states, 'fighting') end
+		if waiting then table.insert(states, 'waiting') end
+		if boss_defeated then table.insert(states, 'boss_defeated') end
+		if busy then table.insert(states, 'busy') end
+		log('State flags: ' .. (#states > 0 and table.concat(states, ', ') or 'none'))
 	elseif command[1] == 'next' then
 		if rotation_enabled then
 			log('Moving to next boss...')
@@ -862,8 +945,30 @@ windower.register_event('addon command', function(...)
 		log('Current Zone: ' .. zone_name .. ' (ID: ' .. zone_id .. ')')
 		log('Target Boss: ' .. boss_config.name)
 		log('Target Zone: ' .. boss_config.target_zone)
+		log('In Correct Zone: ' .. tostring(isInCorrectZone(zone_name)))
 		log('Elvorseal Active: ' .. tostring(isBuffActive(BUFFS.ELVORSEAL)))
 		log('Script State: ' .. (pause == 'on' and 'paused' or 'running'))
+		
+		-- Check ring availability and cooldowns
+		local items = windower.ffxi.get_items()
+		local bag1_items = items.inventory or {}
+		local warp_ring_found = false
+		local dim_ring_found = false
+		
+		for i = 1, 80 do
+			local item = bag1_items[i]
+			if item and item.id then
+				local item_name = res.items[item.id].en
+				if item_name == "Warp Ring" then
+					warp_ring_found = true
+				elseif item_name == "Dim. Ring (Holla)" then
+					dim_ring_found = true
+				end
+			end
+		end
+		
+		log('Warp Ring Available: ' .. tostring(warp_ring_found))
+		log('Dim Ring (Holla) Available: ' .. tostring(dim_ring_found))
 		
 		-- Show nearby NPCs
 		local mobs = windower.ffxi.get_mob_list()

@@ -24,8 +24,12 @@ The script can either focus on a single boss or automatically rotate between all
 ## Prerequisites
 
 ### Required Items
+- **Warp Ring** - For Azi Dahaka and Naga Raja farming  
 - **Dim. Ring (Holla)** - For Quetzalcoatl farming
-- **Warp Ring** - For Azi Dahaka and Naga Raja farming
+
+**Note**: The script automatically equips both rings when started:
+- **Left Ring (Ring1)**: Warp Ring
+- **Right Ring (Ring2)**: Dim. Ring (Holla)
 
 ### Required Addons
 - **SuperWarp** - For automatic homepoint travel between zones
@@ -52,8 +56,9 @@ local trust5 = 'Nashmeira II'
 2. Install **SuperWarp** addon (required dependency):
    - Place the `superwarp` folder in your `Windower/addons/` directory
    - **No need to load manually** - TripleFarm auto-loads it
-3. Load TripleFarm: `//lua load TripleFarm` (this will auto-load SuperWarp)
-4. Configure your settings (see Configuration section)
+3. **Ensure you have both required rings** in your inventory
+4. Load TripleFarm: `//lua load TripleFarm` (this will auto-load SuperWarp and equip rings)
+5. Configure your settings (see Configuration section)
 
 ## First Time Setup
 
@@ -158,13 +163,12 @@ For each boss, the script:
 
 ## Configuration
 
-### Teleport Rings
-The script uses these rings by default:
-- Quetzalcoatl: `"Dim. Ring (Holla)"`
-- Azi Dahaka: `"Warp Ring"`
-- Naga Raja: `"Warp Ring"`
+### Ring Management
+The script automatically equips and manages both teleport rings:
+- **Warp Ring** (left ring) - Used for Azi Dahaka and Naga Raja
+- **Dim. Ring (Holla)** (right ring) - Used for Quetzalcoatl
 
-To change rings, edit the BOSSES configuration in the script.
+No manual ring configuration required!
 
 ### Trust Names
 Update trust names in the script to match your available trusts:
@@ -234,6 +238,12 @@ Each boss has predefined waiting positions. The script adds random offsets to av
 - Verify ring names match your inventory exactly
 - Check that rings are not equipped in conflicting slots
 - Ensure sufficient ring charges
+
+### Ring Cooldown Issues
+- **Problem**: Started script while inside target zone, ring on cooldown
+- **Solution**: Script now automatically detects if you're already in the correct zone
+- **Tip**: Use `//tf debug` to check if you're in the correct zone before starting
+- **Manual Fix**: If stuck, wait for ring cooldown or manually move to entrance zone
 
 ## Tips
 
