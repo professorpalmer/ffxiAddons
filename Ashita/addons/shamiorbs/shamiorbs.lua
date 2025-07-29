@@ -94,11 +94,23 @@ local function message(text)
     print(chat.header(addon.name):append(chat.message(text)));
 end
 
--- Function to get current seal counts (will need to implement based on actual seal storage)
-local function getSealCount(seal_type)
-    -- This will need to be implemented based on how seals are stored
-    -- For now, returning 999 as placeholder
-    return 999
+-- Function to get current seal counts from packet data
+local function getSealCount(seal_type, packet_data)
+    if not packet_data then return 999 end  -- Fallback
+    
+    if seal_type == 'beastmen' then
+        return struct.unpack('H', packet_data, 0x08 + 1) or 0
+    elseif seal_type == 'kindred' then
+        return struct.unpack('H', packet_data, 0x0A + 1) or 0
+    elseif seal_type == 'crest' then
+        return struct.unpack('H', packet_data, 0x0C + 1) or 0
+    elseif seal_type == 'high_crest' then
+        return struct.unpack('H', packet_data, 0x0E + 1) or 0
+    elseif seal_type == 'sacred_crest' then
+        return struct.unpack('L', packet_data, 0x10 + 1) or 0  -- 4-byte for larger numbers
+    else
+        return 999  -- Unknown seal type
+    end
 end
 
 
@@ -248,7 +260,8 @@ ashita.events.register('packet_in', 'orb_cb', function(e)
         
         e.blocked = true;
 
-        local currentSeals = getSealCount(_orb.seal_type)
+        -- Get current seal count from packet data
+        local currentSeals = getSealCount(_orb.seal_type, e.data)
 
         if _orb.cost <= currentSeals then
             local packet = {}
