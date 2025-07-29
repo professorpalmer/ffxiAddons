@@ -44,19 +44,19 @@ npcs = {
 -- Orb data - trying different option indices for Shami
 -- Let's try simple sequential numbers first
 orbs = {
-    [0] = { name = 'Cloudy Orb', seals = 20, seal_type = 'beastmen', cost = 20, oi = 1 },      -- 20 Beastmen's Seals
-    [1] = { name = 'Sky Orb', seals = 30, seal_type = 'beastmen', cost = 30, oi = 2 },         -- 30 Beastmen's Seals  
-    [2] = { name = 'Star Orb', seals = 40, seal_type = 'beastmen', cost = 40, oi = 3 },        -- 40 Beastmen's Seals
-    [3] = { name = 'Comet Orb', seals = 50, seal_type = 'beastmen', cost = 50, oi = 4 },       -- 50 Beastmen's Seals
-    [4] = { name = 'Moon Orb', seals = 60, seal_type = 'beastmen', cost = 60, oi = 5 },        -- 60 Beastmen's Seals
-    [5] = { name = 'Atropos Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 6 },      -- 30 Kindred's Seals
-    [6] = { name = 'Clotho Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 7 },       -- 30 Kindred's Seals
-    [7] = { name = 'Lachesis Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 8 },     -- 30 Kindred's Seals
-    [8] = { name = 'Themis Orb', seals = 99, seal_type = 'kindred', cost = 99, oi = 9 },       -- 99 Kindred's Seals
-    [9] = { name = 'Phobos Orb', seals = 30, seal_type = 'crest', cost = 30, oi = 10 },        -- 30 Kindred's Crests
-    [10] = { name = 'Deimos Orb', seals = 50, seal_type = 'crest', cost = 50, oi = 11 },       -- 50 Kindred's Crests
-    [11] = { name = 'Zelos Orb', seals = 30, seal_type = 'high_crest', cost = 30, oi = 12 },   -- 30 High Kindred's Crests
-    [12] = { name = 'Bia Orb', seals = 50, seal_type = 'high_crest', cost = 50, oi = 13 },     -- 50 High Kindred's Crests
+    [0] = { name = 'Cloudy Orb', seals = 20, seal_type = 'beastmen', cost = 20, oi = 1 },            -- 20 Beastmen's Seals
+    [1] = { name = 'Sky Orb', seals = 30, seal_type = 'beastmen', cost = 30, oi = 2 },               -- 30 Beastmen's Seals
+    [2] = { name = 'Star Orb', seals = 40, seal_type = 'beastmen', cost = 40, oi = 3 },              -- 40 Beastmen's Seals
+    [3] = { name = 'Comet Orb', seals = 50, seal_type = 'beastmen', cost = 50, oi = 4 },             -- 50 Beastmen's Seals
+    [4] = { name = 'Moon Orb', seals = 60, seal_type = 'beastmen', cost = 60, oi = 5 },              -- 60 Beastmen's Seals
+    [5] = { name = 'Atropos Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 6 },            -- 30 Kindred's Seals
+    [6] = { name = 'Clotho Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 7 },             -- 30 Kindred's Seals
+    [7] = { name = 'Lachesis Orb', seals = 30, seal_type = 'kindred', cost = 30, oi = 8 },           -- 30 Kindred's Seals
+    [8] = { name = 'Themis Orb', seals = 99, seal_type = 'kindred', cost = 99, oi = 9 },             -- 99 Kindred's Seals
+    [9] = { name = 'Phobos Orb', seals = 30, seal_type = 'crest', cost = 30, oi = 10 },              -- 30 Kindred's Crests
+    [10] = { name = 'Deimos Orb', seals = 50, seal_type = 'crest', cost = 50, oi = 11 },             -- 50 Kindred's Crests
+    [11] = { name = 'Zelos Orb', seals = 30, seal_type = 'high_crest', cost = 30, oi = 12 },         -- 30 High Kindred's Crests
+    [12] = { name = 'Bia Orb', seals = 50, seal_type = 'high_crest', cost = 50, oi = 13 },           -- 50 High Kindred's Crests
     [13] = { name = 'Microcosmic Orb', seals = 10, seal_type = 'sacred_crest', cost = 10, oi = 14 }, -- 10 Sacred Kindred's Crests
     [14] = { name = 'Macrocosmic Orb', seals = 20, seal_type = 'sacred_crest', cost = 20, oi = 15 }  -- 20 Sacred Kindred's Crests
 }
@@ -68,21 +68,21 @@ shortcuts = {
     ["star"] = 2,
     ["comet"] = 3,
     ["moon"] = 4,
-    
+
     -- Kindred Seal Orbs
     ["atropos"] = 5,
     ["clotho"] = 6,
     ["lachesis"] = 7,
     ["themis"] = 8,
-    
+
     -- Kindred Crest Orbs
     ["phobos"] = 9,
     ["deimos"] = 10,
-    
+
     -- High Kindred Crest Orbs
     ["zelos"] = 11,
     ["bia"] = 12,
-    
+
     -- Sacred Kindred Crest Orbs
     ["microcosmic"] = 13,
     ["micro"] = 13,
@@ -96,8 +96,8 @@ end
 
 -- Function to get current seal counts from packet data
 local function getSealCount(seal_type, packet_data)
-    if not packet_data then return 999 end  -- Fallback
-    
+    if not packet_data then return 999 end -- Fallback
+
     if seal_type == 'beastmen' then
         return struct.unpack('H', packet_data, 0x08 + 1) or 0
     elseif seal_type == 'kindred' then
@@ -107,9 +107,9 @@ local function getSealCount(seal_type, packet_data)
     elseif seal_type == 'high_crest' then
         return struct.unpack('H', packet_data, 0x0E + 1) or 0
     elseif seal_type == 'sacred_crest' then
-        return struct.unpack('L', packet_data, 0x10 + 1) or 0  -- 4-byte for larger numbers
+        return struct.unpack('L', packet_data, 0x10 + 1) or 0 -- 4-byte for larger numbers
     else
-        return 999  -- Unknown seal type
+        return 999                                            -- Unknown seal type
     end
 end
 
@@ -156,12 +156,13 @@ ashita.events.register('command', 'command_cb', function(e)
             if orbNumber and type(orbNumber) == 'number' and orbs[orbNumber] then
                 _orb = orbs[orbNumber]
                 local currentSeals = getSealCount(_orb.seal_type)
-                
+
                 if currentSeals >= _orb.cost then
                     message(string.format("Purchasing %s for %d %s seals...", _orb.name, _orb.seals, _orb.seal_type))
                     EngageDialogue(npc)
                 else
-                    message(string.format("Not enough %s seals! Need %d, have %d", _orb.seal_type, _orb.cost, currentSeals))
+                    message(string.format("Not enough %s seals! Need %d, have %d", _orb.seal_type, _orb.cost,
+                        currentSeals))
                     _orb = nil
                 end
             else
@@ -247,17 +248,17 @@ ashita.events.register('packet_in', 'orb_cb', function(e)
         local zone = struct.unpack('H', e.data, 0x2A + 0x01);
         local menuId = struct.unpack('H', e.data, 0x2C + 0x01);
         local npc = npcs[zone]
-        
+
         if not _orb or not npc then return false end
-        
+
         -- Store the actual menu ID when we first encounter it
         if npc.menuId == 0 then
             npc.menuId = menuId
             message(string.format("Detected Shami menu ID: %d", menuId))
         end
-        
+
         if npc.menuId ~= menuId then return false end
-        
+
         e.blocked = true;
 
         -- Get current seal count from packet data
