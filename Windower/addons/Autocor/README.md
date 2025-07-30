@@ -1,4 +1,4 @@
-# AutoCOR v2.0.0 - Professional UI Edition
+# AutoCOR v3.0.0 - Professional UI Edition
 
 ## Overview
 AutoCOR has been completely redesigned with a modern, professional UI system that rivals desktop applications. Gone are the days of basic text displays - welcome to the future of Windower addons!
@@ -110,7 +110,7 @@ The UI position and scaling can be adjusted in `data/settings.xml`:
 
 - **Original AutoCOR**: Ivaar|Relisaa
 - **UI System**: Based on SmartSkillup by RolandJ
-- **Professional UI**: Enhanced by AI Assistant
+- **Professional UI**: Enhanced by Palmer (Zodiarchy @ Asura)
 
 ## Version History
 
