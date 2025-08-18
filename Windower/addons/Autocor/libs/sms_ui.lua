@@ -83,7 +83,7 @@ local scalars = T{
 		sidecar_h = 17  * ui_scalar,
 	},
 	texts = {
-		size         = 13 * ui_scalar,
+		size         = 10 * ui_scalar, -- Reduced from 13 to 10 for smaller text
 		stroke_width =  1 * ui_scalar,
 		padding      =  1 * ui_scalar,
 	},
@@ -154,17 +154,22 @@ end
 -------------------------------------------------------------------------------------------------------------------
 -- Function that generates hitboxes for the main UI area used to capture all mouse clicks in said areas
 -------------------------------------------------------------------------------------------------------------------
-function ui.generate_hitbox_config(kind)
-	if kind == nil then return end
+function ui.generate_hitbox_config(name)
+	local hitbox_config = T{}
 	
-	if kind == 'main' then
-		return {
-			x = ui_settings.top_left.x,
-			y = ui_settings.top_left.y,
-			width  = 350, -- Cover all buttons and party indicators
-			height = 150  -- Cover all UI elements
-		}
+	if name == 'main' then
+		hitbox_config.x = ui.top_left()
+		hitbox_config.y = ui.top_left()
+		hitbox_config.width = user_scalars.images.width
+		hitbox_config.height = user_scalars.images.height * 5 -- Back to 5 buttons with normal spacing
+	elseif name == 'sidecar' then
+		hitbox_config.x = ui.top_left() + user_scalars.offsets.sidecar.x
+		hitbox_config.y = ui.top_left() + user_scalars.offsets.sidecar.y
+		hitbox_config.width = user_scalars.images.sidecar_w
+		hitbox_config.height = user_scalars.images.sidecar_h * 3 -- 3 sidecar elements
 	end
+	
+	return hitbox_config
 end
 
 function ui.top_left(x, y)
@@ -344,7 +349,7 @@ function ui.generate_hitbox_config(name)
 		hitbox_config.x = ui.top_left()
 		hitbox_config.y = ui.top_left()
 		hitbox_config.width = user_scalars.images.width
-		hitbox_config.height = user_scalars.images.height * 5 -- 5 buttons
+		hitbox_config.height = user_scalars.images.height * 5 -- Back to 5 buttons with normal spacing
 	elseif name == 'sidecar' then
 		hitbox_config.x = ui.top_left() + user_scalars.offsets.sidecar.x
 		hitbox_config.y = ui.top_left() + user_scalars.offsets.sidecar.y
@@ -392,12 +397,12 @@ function ui.create_button(name, text, command, x, y, user_scalars, disable_click
 	image:show()
 	print('AutoCOR UI: Created image for ' .. name)
 	
-	-- Add Text
+	-- Add Text with SmartSkillup-style styling
 	local text_obj = texts.new(text)
 	text_obj:pos(x + user_scalars.offsets.texts.x, y)
 	text_obj:size(user_scalars.texts.size)
 	text_obj:color(colors[button_config[name].color]())
-	text_obj:stroke_width(user_scalars.texts.stroke_width)
+	text_obj:stroke_width(user_scalars.texts.stroke_width * 2) -- Double stroke width for better visibility
 	text_obj:pad(user_scalars.texts.padding)
 	text_obj:italic(true)
 	text_obj:bold(true)
@@ -409,12 +414,12 @@ function ui.create_button(name, text, command, x, y, user_scalars, disable_click
 	text_obj:show()
 	print('AutoCOR UI: Created text for ' .. name)
 	
-	-- Add Subtext
+	-- Add Subtext with SmartSkillup-style styling
 	local subtext = texts.new(button_config[name].subtext or '')
 	subtext:pos(x + user_scalars.offsets.subtexts.x, y)
 	subtext:size(user_scalars.texts.size)
 	subtext:color(colors[button_config[name].color]())
-	subtext:stroke_width(user_scalars.texts.stroke_width)
+	subtext:stroke_width(user_scalars.texts.stroke_width * 2) -- Double stroke width for better visibility
 	subtext:pad(user_scalars.texts.padding)
 	subtext:italic(true)
 	subtext:bold(true)
@@ -435,7 +440,7 @@ function ui.create_status_text(name, text, x, y, user_scalars)
 	status_text:pos(x, y)
 	status_text:size(user_scalars.texts.size)
 	status_text:color(colors.white())
-	status_text:stroke_width(user_scalars.texts.stroke_width)
+	status_text:stroke_width(user_scalars.texts.stroke_width * 2) -- Double stroke width for better visibility
 	status_text:pad(user_scalars.texts.padding)
 	status_text:italic(false)
 	status_text:bold(true)
@@ -452,9 +457,9 @@ function ui.create_party_text_button(name, text, command, x, y, user_scalars)
 	
 	local text_button = texts.new(text)
 	text_button:pos(x, y)
-	text_button:size(user_scalars.texts.size * 0.8)
-	text_button:color(colors.green())
-	text_button:stroke_width(user_scalars.texts.stroke_width)
+	text_button:size(user_scalars.texts.size * 0.9) -- Slightly larger than 0.8 for better readability
+	text_button:color(colors.green()) -- Default color, will be updated by update_ui
+	text_button:stroke_width(user_scalars.texts.stroke_width * 2) -- Double stroke width for better visibility
 	text_button:pad(user_scalars.texts.padding)
 	text_button:italic(false)
 	text_button:bold(true)
@@ -465,7 +470,7 @@ function ui.create_party_text_button(name, text, command, x, y, user_scalars)
 	
 	-- Register click events
 	text_button:register_event('left_click', ui.left_click_event)
-	text_button:register_event('hover', ui.hover_event)
+	-- Remove hover event to prevent color changes on hover
 	
 	ui.store_table(text_button, name, 'text_button', command)
 	text_button:show()
@@ -504,32 +509,30 @@ function ui.initialize(settings, user_scalars)
 	ui.update_user_scalars(settings)
 	print('AutoCOR UI: User scalars updated')
 	
-	-- Create main control buttons
+	-- Create main control buttons with normal spacing (smaller font makes it compact)
 	print('AutoCOR UI: Creating buttons...')
 	ui.create_button('autocor_toggle', 'AutoCOR OFF', 'lua c autocor toggle', settings.top_left.x, settings.top_left.y, user_scalars)
 	ui.create_button('roll1', 'Roll 1: Corsair\'s', 'cor roll 1 Corsair\'s Roll', settings.top_left.x, settings.top_left.y + 25, user_scalars, true) -- Disable click
 	ui.create_button('roll2', 'Roll 2: Chaos', 'cor roll 2 Chaos Roll', settings.top_left.x, settings.top_left.y + 50, user_scalars, true) -- Disable click
-	    ui.create_button('crooked_cards', 'Crooked Cards', 'lua c autocor cc toggle', settings.top_left.x, settings.top_left.y + 75, user_scalars)
+	ui.create_button('crooked_cards', 'Crooked Cards', 'lua c autocor cc toggle', settings.top_left.x, settings.top_left.y + 75, user_scalars)
 	ui.create_button('quick_draw', 'Auto QD OFF', 'lua c autocor autodraw', settings.top_left.x, settings.top_left.y + 100, user_scalars)
 	ui.create_button('random_deal', 'Auto RD OFF', 'lua c autocor autorandom', settings.top_left.x, settings.top_left.y + 125, user_scalars)
-	ui.create_button('hide_ui', 'Hide UI', 'cor hide', settings.top_left.x, settings.top_left.y + 150, user_scalars)
-	ui.create_button('reset_ui', 'Reset UI', 'cor reset', settings.top_left.x, settings.top_left.y + 175, user_scalars)
 	print('AutoCOR UI: Buttons created')
 	
-	-- Create status displays
+	-- Create status displays with better positioning
 	print('AutoCOR UI: Creating status texts...')
 	ui.create_status_text('roll1_status', 'Corsair\'s: 5/11', settings.top_left.x + 220, settings.top_left.y + 30, user_scalars)
-	ui.create_status_text('roll2_status', 'Chaos: 4/8', settings.top_left.x + 220, settings.top_left.y + 60, user_scalars)
-	ui.create_status_text('party_status', 'Party AoE: All Active', settings.top_left.x + 220, settings.top_left.y + 90, user_scalars)
+	ui.create_status_text('roll2_status', 'Chaos: 4/8', settings.top_left.x + 220, settings.top_left.y + 55, user_scalars)
+	ui.create_status_text('party_status', 'Party AoE: All Active', settings.top_left.x + 220, settings.top_left.y + 80, user_scalars)
 	print('AutoCOR UI: Status texts created')
 	
-	-- Create party indicator text buttons
+	-- Create party indicator text buttons in a more compact layout
 	print('AutoCOR UI: Creating party indicator text buttons...')
-	ui.create_party_text_button('p1', 'P1', 'lua c autocor aoe 1', settings.top_left.x + 220, settings.top_left.y + 120, user_scalars)
-	ui.create_party_text_button('p2', 'P2', 'lua c autocor aoe 2', settings.top_left.x + 250, settings.top_left.y + 120, user_scalars)
-	ui.create_party_text_button('p3', 'P3', 'lua c autocor aoe 3', settings.top_left.x + 280, settings.top_left.y + 120, user_scalars)
-	ui.create_party_text_button('p4', 'P4', 'lua c autocor aoe 4', settings.top_left.x + 310, settings.top_left.y + 120, user_scalars)
-	ui.create_party_text_button('p5', 'P5', 'lua c autocor aoe 5', settings.top_left.x + 340, settings.top_left.y + 120, user_scalars)
+	ui.create_party_text_button('p1', 'P1', 'lua c autocor aoe 1', settings.top_left.x + 220, settings.top_left.y + 105, user_scalars)
+	ui.create_party_text_button('p2', 'P2', 'lua c autocor aoe 2', settings.top_left.x + 240, settings.top_left.y + 105, user_scalars)
+	ui.create_party_text_button('p3', 'P3', 'lua c autocor aoe 3', settings.top_left.x + 260, settings.top_left.y + 105, user_scalars)
+	ui.create_party_text_button('p4', 'P4', 'lua c autocor aoe 4', settings.top_left.x + 280, settings.top_left.y + 105, user_scalars)
+	ui.create_party_text_button('p5', 'P5', 'lua c autocor aoe 5', settings.top_left.x + 300, settings.top_left.y + 105, user_scalars)
 	print('AutoCOR UI: Party indicator text buttons created')
 	
 	-- Add Main Area's Hitbox (for drag of entire UI)
@@ -543,11 +546,11 @@ function ui.initialize(settings, user_scalars)
 	ui.store_table(hitbox, 'main', 'hitbox')
 	hitbox:show()
 	
-	-- Create header
+	-- Create header with SmartSkillup-style styling
 	print('AutoCOR UI: Creating header...')
 	local header = texts.new('AUTOCOR CONTROL PANEL')
-	header:pos(settings.top_left.x, settings.top_left.y - 20)
-	header:size(user_scalars.texts.size * 1.2)
+	header:pos(settings.top_left.x, settings.top_left.y - 15)
+	header:size(user_scalars.texts.size * 0.8)
 	header:color(colors.yellow())
 	header:stroke_width(user_scalars.texts.stroke_width * 2)
 	header:pad(user_scalars.texts.padding)
@@ -643,6 +646,9 @@ function ui.hover_event(t, root_settings, hovered, active_click)
 	if not m or not m.command then return end -- ignore destroyed or non-interactable elements
 	if active_click then return end -- ignore embedded hovers (click > *hover elsewhere* > release)
 	
+	-- Don't change colors for party text buttons - they should show their state
+	if m.kind == 'text_button' then return end
+	
 	-- HOVER
 	if hovered then
 		if m.color and m.color[1] and m.color[2] and m.color[3] then
@@ -655,6 +661,35 @@ function ui.hover_event(t, root_settings, hovered, active_click)
 		if m.color and m.color[1] and m.color[2] and m.color[3] then
 			t:color(m.color[1], m.color[2], m.color[3])
 		end
+	end
+end
+
+function ui.set_party_text_color(slot, color)
+	local _, m = ui.meta:find(function(m) return m.name == slot and m.kind == 'text_button' end)
+	if m and m.t then
+		m.t:color(colors[color]())
+	end
+end
+
+function ui.set_status_text(name, text)
+	local _, m = ui.meta:find(function(m) return m.name == name and m.kind == 'status' end)
+	if m and m.t then
+		m.t:text(text)
+	end
+end
+
+function ui.button_active(name, active)
+	local _, m = ui.meta:find(function(m) return m.name == name and m.kind == 'image' end)
+	if m and m.t then
+		local image_path = path .. 'Button002-' .. (active and 'Orange' or 'Blue') .. '.png'
+		m.t:path(image_path)
+	end
+end
+
+function ui.set_text(name, text)
+	local _, m = ui.meta:find(function(m) return m.name == name and m.kind == 'text' end)
+	if m and m.t then
+		m.t:text(text)
 	end
 end
 

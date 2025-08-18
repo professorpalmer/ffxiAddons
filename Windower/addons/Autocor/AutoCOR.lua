@@ -70,7 +70,7 @@ local start_act = L{7,8,9,12}
 local is_casting = false
 
 local function use_JA(str,ta)
-    windower.send_command('input /ja "%s" %s':format(str,ta))
+    windower.send_command(('input /ja "%s" %s'):format(str,ta))
     del = 1.2
 end
 
@@ -182,11 +182,9 @@ local function update_ui()
     ui.set_text('roll1', 'Roll 1: ' .. settings.roll[1])
     ui.set_text('roll2', 'Roll 2: ' .. settings.roll[2])
     
-    -- Update roll status displays
+    -- Update roll status displays with SmartSkillup-style formatting
     local roll1 = rolls:with('en', settings.roll[1])
     local roll2 = rolls:with('en', settings.roll[2])
-    
-
     
     -- Always show roll1 status with lucky/unlucky values
     if roll1 then
@@ -226,9 +224,6 @@ local function update_ui()
     ui.button_active('random_deal', use_random_deal > 0)
     ui.set_text('random_deal', 'Auto RD: ' .. (use_random_deal > 0 and 'ON' or 'OFF'))
     
-    -- Update Hide UI button
-    ui.set_text('hide_ui', settings.ui_hidden and 'Show UI' or 'Hide UI')
-    
     -- Update party AoE status
     local active_count = 0
     for slot in party_slots:it() do
@@ -251,7 +246,7 @@ local function update_ui()
     end
 end
 
-local last_coords = 'fff':pack(0,0,0)
+local last_coords = ('fff'):pack(0,0,0)
 local is_moving = false
 
 local function check_outgoing_chunk(id,data,modified,is_injected,is_blocked)
@@ -295,7 +290,7 @@ local function prerender()
 						if x == settings.crooked_cards and abil_recasts[96] and abil_recasts[96] == 0 then
 							use_JA("Crooked Cards", '<me>')
 						else
-							use_JA('%s':format(roll.en), '<me>')
+							use_JA(('%s'):format(roll.en), '<me>')
 						end
 					end
 					return
@@ -418,9 +413,9 @@ local function addon_command(...)
         end
 
         if settings.aoe[slot] then
-            windower.add_to_chat(207, 'Will now ensure <%s> is in AoE range.':format(slot))
+            windower.add_to_chat(207, ('Will now ensure <%s> is in AoE range.'):format(slot))
         else
-            windower.add_to_chat(207, 'Ignoring slot <%s>':format(slot))
+            windower.add_to_chat(207, ('Ignoring slot <%s>'):format(slot))
         end
     elseif commands[1] == 'save' then
         settings:save()

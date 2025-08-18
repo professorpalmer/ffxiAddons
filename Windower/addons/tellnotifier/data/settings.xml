@@ -1,0 +1,19 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <cooldown>1</cooldown>
+        <debug_mode>false</debug_mode>
+        <discord_enabled>true</discord_enabled>
+        <enabled>true</enabled>
+        <monitor_emotes>false</monitor_emotes>
+        <monitor_linkshell1>false</monitor_linkshell1>
+        <monitor_linkshell2>false</monitor_linkshell2>
+        <monitor_party>false</monitor_party>
+        <monitor_say>false</monitor_say>
+        <monitor_shout>false</monitor_shout>
+        <monitor_tells>true</monitor_tells>
+        <monitor_unity>false</monitor_unity>
+        <monitor_yell>false</monitor_yell>
+        <webhook_url>INSERT_WEBHOOK_URL_HERE</webhook_url>
+    </global>
+</settings>
