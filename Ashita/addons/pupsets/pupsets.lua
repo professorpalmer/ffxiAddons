@@ -1,7 +1,7 @@
 addon.name = 'pupsets';
 addon.author = 'Palmer (Zodiarchy @ Asura)';
 addon.version = '1.0';
-addon.desc = 'Manage pup attachments easily with slash commands.';
+addon.desc = 'Easily manage Puppetmaster attachment sets with GUI interface.';
 
 require('common');
 local imgui = require('imgui');
