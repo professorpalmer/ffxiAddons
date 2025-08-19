@@ -21,7 +21,7 @@
 
 _addon.name      = 'TellNotifier'
 _addon.author    = 'Palmer (Zodiarchy @ Asura)'
-_addon.version   = '1.0'
+_addon.version   = '1.2'
 _addon.desc      = 'Sends Discord notifications when you receive chat messages.'
 _addon.commands  = {'tellnotifier', 'tn'}
 
@@ -31,6 +31,24 @@ local config = require('config')
 local https = require('ssl.https')
 local ssl = require('ssl')
 local ltn12 = require('ltn12')
+
+-- Helper functions for string operations
+local function startswith(str, start)
+    return str:sub(1, #start) == start
+end
+
+local function split(str, delimiter)
+    local result = {}
+    local from = 1
+    local delim_from, delim_to = string.find(str, delimiter, from)
+    while delim_from do
+        table.insert(result, string.sub(str, from, delim_from - 1))
+        from = delim_to + 1
+        delim_from, delim_to = string.find(str, delimiter, from)
+    end
+    table.insert(result, string.sub(str, from))
+    return result
+end
 
 -- Default Settings
 local default_settings = T{
@@ -48,6 +66,8 @@ local default_settings = T{
     monitor_shout = false,        -- mode 1 = shout chat
     monitor_yell = false,         -- mode 26 = yell chat
     monitor_unity = false,        -- mode 33 = unity chat
+    -- New setting for outgoing messages
+    monitor_outgoing = false,     -- monitor messages sent by the user
 }
 
 -- Load settings using Windower's config system
@@ -85,8 +105,13 @@ local function SendDiscordNotification(sender, message, chat_type)
         return
     end
     
+    -- Ensure all parameters have valid values
+    sender = sender or 'Unknown'
+    message = message or 'Empty message'
+    chat_type = chat_type or 'Message'
+    
     -- Create the notification content with chat type
-    local notification_text = string.format('FFXI %s from %s: %s', chat_type or 'Message', sender, message)
+    local notification_text = string.format('FFXI %s from %s: %s', chat_type, sender, message)
     
     -- Escape text for JSON
     local json_safe_text = notification_text:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n'):gsub('\r', '\\r'):gsub('\t', '\\t')
@@ -204,7 +229,7 @@ local chat_modes = {
 windower.register_event('chat message', function(message, sender, mode, is_gm)
     -- Enhanced debug output to see ALL chat messages
     if settings.debug_mode then
-        windower.add_to_chat(123, string.format('TellNotifier DEBUG: Mode=%d, Sender=%s, Message=%s', mode, sender or 'nil', message))
+        windower.add_to_chat(123, string.format('TellNotifier DEBUG: Mode=%d, Sender=%s, Message=%s', mode or -1, sender or 'nil', message or 'nil'))
     end
     
     local chat_info = chat_modes[mode]
@@ -228,14 +253,137 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
         
         tellnotifier.last_tell_time = current_time
         
+        -- Convert auto-translate and clean up message for Discord
+        local clean_message = windower.convert_auto_trans(message) or message
+        
         -- Send notification with chat type
-        SendDiscordNotification(sender, message, chat_info.name)
+        SendDiscordNotification(sender, clean_message, chat_info.name)
         
         if settings.debug_mode then
             windower.add_to_chat(123, string.format('TellNotifier: %s notification sent from %s: %s', chat_info.name, sender, message))
         end
     elseif settings.debug_mode then
-        windower.add_to_chat(123, string.format('TellNotifier: Chat mode %d (%s) from %s: %s', mode, chat_info and chat_info.name or 'Unknown', sender or 'Unknown', message))
+        windower.add_to_chat(123, string.format('TellNotifier: Chat mode %d (%s) from %s: %s', mode or -1, chat_info and chat_info.name or 'Unknown', sender or 'Unknown', message or 'nil'))
+    end
+end)
+
+--[[
+* Event: outgoing text
+* desc : Event called when the user sends a chat message.
+--]]
+windower.register_event('outgoing text', function(original, modified, mode)
+    if not settings.monitor_outgoing or not settings.enabled then
+        return
+    end
+    
+    if settings.debug_mode then
+        windower.add_to_chat(123, string.format('TellNotifier DEBUG OUTGOING: Mode=%d, Message=%s', mode or -1, original or 'nil'))
+    end
+    
+    -- Get player name
+    local player_name = windower.ffxi.get_player().name or 'Unknown'
+    
+    -- Parse the outgoing message to determine chat type
+    local chat_type = 'Unknown'
+    local clean_message = original
+    
+    -- Check for chat commands first
+    if startswith(original, '/tell ') or startswith(original, '/t ') then
+        chat_type = 'Tell'
+        -- Extract the actual message part (remove /tell <target>)
+        local parts = split(original, ' ')
+        if #parts >= 3 then
+            table.remove(parts, 1) -- remove /tell
+            table.remove(parts, 1) -- remove target name
+            clean_message = table.concat(parts, ' ')
+        end
+    elseif startswith(original, '/party ') or startswith(original, '/p ') then
+        chat_type = 'Party'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    elseif startswith(original, '/linkshell ') or startswith(original, '/ls ') then
+        chat_type = 'Linkshell1'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    elseif startswith(original, '/linkshell2 ') or startswith(original, '/ls2 ') then
+        chat_type = 'Linkshell2'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    elseif startswith(original, '/say ') or startswith(original, '/s ') then
+        chat_type = 'Say'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    elseif startswith(original, '/shout ') or startswith(original, '/sh ') then
+        chat_type = 'Shout'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    elseif startswith(original, '/yell ') or startswith(original, '/y ') then
+        chat_type = 'Yell'
+        local space_pos = string.find(original, '/yell ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 6)
+        else
+            space_pos = string.find(original, '/y ', 1, true)
+            if space_pos then
+                clean_message = original:sub(space_pos + 3)
+            end
+        end
+    elseif startswith(original, '/unity ') or startswith(original, '/u ') then
+        chat_type = 'Unity'
+        local space_pos = string.find(original, ' ', 1, true)
+        if space_pos then
+            clean_message = original:sub(space_pos + 1)
+        end
+    else
+        -- Fallback to mode-based detection for non-command messages
+        if mode == 0 then
+            chat_type = 'Say'
+        elseif mode == 1 then
+            chat_type = 'Shout'
+        elseif mode == 2 or mode == 5 then
+            chat_type = 'Linkshell1'
+        elseif mode == 3 then
+            chat_type = 'Tell'
+        elseif mode == 4 then
+            chat_type = 'Party'
+        elseif mode == 26 then
+            chat_type = 'Yell'
+        elseif mode == 27 then
+            chat_type = 'Linkshell2'
+        elseif mode == 33 then
+            chat_type = 'Unity'
+        end
+    end
+    
+    -- Check cooldown to prevent spam
+    local current_time = os.time()
+    if current_time - tellnotifier.last_tell_time < settings.cooldown then
+        if settings.debug_mode then
+            windower.add_to_chat(123, string.format('TellNotifier: Outgoing %s blocked due to cooldown', chat_type))
+        end
+        return
+    end
+    
+    tellnotifier.last_tell_time = current_time
+    
+    -- Convert auto-translate and clean up message for Discord
+    local final_message = windower.convert_auto_trans(clean_message) or clean_message
+    
+    -- Send notification with same format as incoming messages
+    SendDiscordNotification(player_name, final_message, chat_type)
+    
+    if settings.debug_mode then
+        windower.add_to_chat(123, string.format('TellNotifier: Outgoing %s notification sent from %s: %s', chat_type, player_name, clean_message))
     end
 end)
 
@@ -358,6 +506,7 @@ windower.register_event('addon command', function(command, ...)
                 shout = 'monitor_shout',
                 yell = 'monitor_yell',
                 unity = 'monitor_unity',
+                outgoing = 'monitor_outgoing',
             }
             
             local setting_name = setting_map[chat_type]
@@ -374,7 +523,7 @@ windower.register_event('addon command', function(command, ...)
                     windower.add_to_chat(123, 'TellNotifier: Use on/off, true/false, or 1/0')
                 end
             else
-                windower.add_to_chat(123, 'TellNotifier: Valid types: tells, party, linkshell1/ls1, linkshell2/ls2, say, shout, yell, unity')
+                windower.add_to_chat(123, 'TellNotifier: Valid types: tells, party, linkshell1/ls1, linkshell2/ls2, say, shout, yell, unity, outgoing')
             end
         else
             windower.add_to_chat(123, 'TellNotifier: Usage: //tn monitor <type> <on/off>')
@@ -393,6 +542,7 @@ windower.register_event('addon command', function(command, ...)
         windower.add_to_chat(123, 'Shout: ' .. (settings.monitor_shout and 'ON' or 'OFF'))
         windower.add_to_chat(123, 'Yell: ' .. (settings.monitor_yell and 'ON' or 'OFF'))
         windower.add_to_chat(123, 'Unity: ' .. (settings.monitor_unity and 'ON' or 'OFF'))
+        windower.add_to_chat(123, 'Outgoing: ' .. (settings.monitor_outgoing and 'ON' or 'OFF'))
         return
     end
 
@@ -402,7 +552,7 @@ windower.register_event('addon command', function(command, ...)
         windower.add_to_chat(123, '//tn test - Send a test notification')
         windower.add_to_chat(123, '//tn toggle - Toggle notifications on/off')
         windower.add_to_chat(123, '//tn debug - Toggle debug mode')
-        windower.add_to_chat(123, '//tn monitor <type> <on/off> - Enable/disable chat type')
+        windower.add_to_chat(123, '//tn monitor <type> <on/off> - Enable/disable chat type (including outgoing)')
         windower.add_to_chat(123, '//tn status - Show monitoring status for all chat types')
         windower.add_to_chat(123, '//tn seturl <url> - Set Discord webhook URL')
         windower.add_to_chat(123, '//tn reload - Reload settings')

@@ -98,6 +98,7 @@ Both methods work the same way. Method A is recommended since it's easier to cop
 - `shout` - Shout chat (zone-wide)
 - `yell` - Yell chat (wider area)
 - `unity` - Unity chat
+- `outgoing` - Messages you send (for complete chat logging)
 
 ### Examples
 ```
@@ -105,6 +106,7 @@ Both methods work the same way. Method A is recommended since it's easier to cop
 //tn monitor linkshell1 on     # Enable Linkshell 1 notifications
 //tn monitor ls2 on            # Enable Linkshell 2 notifications
 //tn monitor say off           # Disable say chat notifications
+//tn monitor outgoing on       # Enable outgoing message notifications
 //tn status                    # Check what's currently being monitored
 ```
 
@@ -136,6 +138,8 @@ Settings are stored in `data/settings.xml` and include:
 - **monitor_say**: Monitor say chat (default: false)
 - **monitor_shout**: Monitor shout chat (default: false)
 - **monitor_yell**: Monitor yell chat (default: false)
+- **monitor_unity**: Monitor unity chat (default: false)
+- **monitor_outgoing**: Monitor messages you send (default: false)
 
 ## Example Notifications
 
@@ -147,6 +151,7 @@ The addon sends different notification formats based on chat type:
 **Linkshell2:** `FFXI Linkshell2 from Seller: Selling HQ gear!`  
 **Say:** `FFXI Say from Stranger: Hi there!`  
 **Shout:** `FFXI Shout from Player: LFG Dynamis!`  
+**Outgoing:** `FFXI Say from YourName: Hello everyone!`
 
 ## Troubleshooting
 
@@ -206,6 +211,12 @@ The addon sends different notification formats based on chat type:
 
 ## Advanced Usage
 
+### Complete Chat Logging
+- **Outgoing Messages**: Enable `//tn monitor outgoing on` to capture messages you send
+- **Complete Conversations**: Monitor both incoming and outgoing for full chat logs
+- **Discord Funneling**: Perfect for keeping Discord groups updated on all chat activity
+- **Use Case**: Linkshell leaders can funnel all LS chat to Discord for members who aren't online
+
 ### Multiple Characters
 - Each character can have their own webhook URL
 - Use `//tn seturl` on each character separately
@@ -228,14 +239,14 @@ If you encounter issues:
 2. **Check console output** when receiving tells
 3. **Test webhook**: `//tn ping`
 4. **Verify settings**: `//tn` (shows status)
-5. **Ask for help** on the Windower Discord
 
 ## Version History
 
-- **v1.0 (Windower)**: Converted from Ashita version
+- **v1.2 (Windower)**: Converted from my original version made for Ashita. 
+   - You can find the Ashita version under the Ashita directory on this same repo!
 - Full Discord webhook support
-- Automatic tell detection via chat message events
-- GUI display using texts library
+- Automatic chat type detection via chat message events
+- Command-line interface for easy configuration
 
 ## License
 
