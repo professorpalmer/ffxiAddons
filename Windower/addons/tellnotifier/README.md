@@ -186,18 +186,6 @@ Settings are stored in `data/settings.xml` and include:
 - **monitor_unity**: Monitor unity chat (default: false)
 - **monitor_outgoing**: Monitor messages you send (default: false)
 
-## Example Notifications
-
-The addon sends different notification formats based on chat type:
-
-**Tell:** `FFXI Tell from Zodiarchy: Hey, want to party?`  
-**Party:** `FFXI Party from Tank: Ready to pull`  
-**Linkshell1:** `FFXI Linkshell1 from Palmer: Anyone up for Omen?`  
-**Linkshell2:** `FFXI Linkshell2 from Seller: Selling HQ gear!`  
-**Say:** `FFXI Say from Stranger: Hi there!`  
-**Shout:** `FFXI Shout from Player: LFG Dynamis!`  
-**Outgoing:** `FFXI Say from YourName: Hello everyone!`
-
 ## Troubleshooting
 
 ### "No webhook URL configured"
