@@ -5,6 +5,17 @@
         <cooldown>1</cooldown>
         <debug_mode>false</debug_mode>
         <discord_enabled>true</discord_enabled>
+        <!-- Per-Channel Cooldowns (optional, uses global cooldown if not set) -->
+        <!--
+        <cooldown_tell>1</cooldown_tell>
+        <cooldown_party>2</cooldown_party>
+        <cooldown_linkshell1>3</cooldown_linkshell1>
+        <cooldown_linkshell2>3</cooldown_linkshell2>
+        <cooldown_say>0.5</cooldown_say>
+        <cooldown_shout>5</cooldown_shout>
+        <cooldown_yell>5</cooldown_yell>
+        <cooldown_unity>2</cooldown_unity>
+        -->
         <enable_batching>true</enable_batching>
         <enabled>true</enabled>
         <monitor_emotes>false</monitor_emotes>
@@ -18,15 +29,15 @@
         <monitor_unity>false</monitor_unity>
         <monitor_yell>false</monitor_yell>
         <!-- Main/Fallback Webhook URL -->
-        <webhook_url>INSERT_MAIN_WEBHOOK_URL_HERE</webhook_url>
+        <webhook_url>https://discord.com/api/webhooks/1407650279540654121/n2rb0jztGNpQ14eIoWZV3BL8UH9mBUFGguIyqGHm1kPeF3DHn3JTC5Ja3veS_HLXZYAQ</webhook_url>
         <!-- Per-Chat-Type Webhook URLs -->
-        <webhook_tell>INSERT_TELL_WEBHOOK_URL_HERE</webhook_tell>
-        <webhook_party>INSERT_PARTY_WEBHOOK_URL_HERE</webhook_party>
-        <webhook_linkshell1>INSERT_LINKSHELL1_WEBHOOK_URL_HERE</webhook_linkshell1>
-        <webhook_linkshell2>INSERT_LINKSHELL2_WEBHOOK_URL_HERE</webhook_linkshell2>
-        <webhook_say>INSERT_SAY_WEBHOOK_URL_HERE</webhook_say>
-        <webhook_shout>INSERT_SHOUT_WEBHOOK_URL_HERE</webhook_shout>
-        <webhook_yell>INSERT_YELL_WEBHOOK_URL_HERE</webhook_yell>
-        <webhook_unity>INSERT_UNITY_WEBHOOK_URL_HERE</webhook_unity>
+        <webhook_tell>https://discord.com/api/webhooks/1407645980026732665/DzXKD0Xn_Rx8BPf-QMb0CAqio0urT-bvqmqRXnBTXEtZ_C3ggRp3kI1r9ApemOx-XnPe</webhook_tell>
+        <webhook_party>https://discord.com/api/webhooks/1407647299999633422/Y9etCvgegvQSVHvlewr0jJ8goXvLVWQXX-ioSv108XKpkAAE_uXqzaJ41kQ-p3BfeYN0</webhook_party>
+        <webhook_linkshell1>https://discord.com/api/webhooks/1407647052099489902/bOSZLrIbVj1xS9z9TWk5Ph3Hm5O0B-De5pSvYeQFcUsE5zPCA1S9U87sMFfHuk80mz8E</webhook_linkshell1>
+        <webhook_linkshell2>https://discord.com/api/webhooks/1407647138665594900/auX4e0DfeJogAJD6YRaHHaDKWKP2kR8TiqxgK141OX0BdoOFy4i9DAJ1XeEsnJY_c5Tg</webhook_linkshell2>
+        <webhook_say>https://discord.com/api/webhooks/1407646167214592091/tpwbU3G2xeAYLpg-uLu4IIbd0RqOJBZKCVva_t_akSmSIBwV2bfoutlYqnvKsUzc-ZrT</webhook_say>
+        <webhook_shout>https://discord.com/api/webhooks/1407646233690116096/qzMKrq0EO8Ooir2x8lZboso095e4CSlvfUonp4XkhJ23vVtKFnljwZxC4Xo7eHyWzcrh</webhook_shout>
+        <webhook_yell>https://discord.com/api/webhooks/1407646946272870410/1Ceou16WpM8FokZjgcgMKD9YNyEsqIqlTjpOP5Om8uxZUiR0JvJZ4SymAuJkn9r2lHqN</webhook_yell>
+        <webhook_unity>https://discord.com/api/webhooks/1407648330615619619/DIV3V1I2gg9Dae1ZJZYCxHTA_9HdL7IX_0GbkK8d0xduZcbeU5T9HzdLkiZKKq0n2KEO</webhook_unity>
     </global>
 </settings>

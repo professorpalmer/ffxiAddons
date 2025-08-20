@@ -57,7 +57,19 @@ function Commands.show_help()
     windower.add_to_chat(123, '//tn reload - Reload settings')
     windower.add_to_chat(123, '//tn ping - Test webhook connection')
     windower.add_to_chat(123, '//tn help - Show this help')
+    windower.add_to_chat(123, '//tn multichar - Show multi-character setup instructions')
     windower.add_to_chat(123, 'Configure webhooks in: /windower/addons/tellnotifier/data/settings.xml')
+end
+
+function Commands.show_multichar_help()
+    windower.add_to_chat(123, 'TellNotifier Multi-Character Setup:')
+    windower.add_to_chat(123, '1. Load addon on each character: //lua load tellnotifier')
+    windower.add_to_chat(123, '2. Each character gets their own settings file automatically')
+    windower.add_to_chat(123, '3. Set webhooks per character in settings.xml')
+    windower.add_to_chat(123, '4. For shared server, use same webhook URLs')
+    windower.add_to_chat(123, '5. For separate channels, use per-chat-type webhooks')
+    windower.add_to_chat(123, '6. Messages show [CharacterName] prefix for identification')
+    windower.add_to_chat(123, 'Example: [Palmer] FFXI Tell from Smacksterr: Hello!')
 end
 
 function Commands.toggle_chat_monitoring(settings, chat_type, state, save_func)

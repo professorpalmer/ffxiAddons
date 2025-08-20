@@ -8,7 +8,7 @@ local ltn12 = require('ltn12')
 
 local Discord = {}
 
-function Discord.send_notification(webhook_url, sender, message, chat_type, debug_mode)
+function Discord.send_notification(webhook_url, sender, message, chat_type, debug_mode, char_name)
     if not webhook_url or webhook_url == '' then
         if debug_mode then
             windower.add_to_chat(123, string.format('TellNotifier: No webhook URL configured for %s', chat_type))
@@ -16,13 +16,13 @@ function Discord.send_notification(webhook_url, sender, message, chat_type, debu
         return false
     end
 
-    -- Create the notification content
-    local notification_text = string.format('FFXI %s from %s: %s', chat_type, sender or 'Unknown',
+    -- Create the notification content with character identification
+    local notification_text = string.format('[%s] FFXI %s from %s: %s', char_name or 'Unknown', chat_type, sender or 'Unknown',
         message or 'Empty message')
 
     -- Escape text for JSON
     local json_safe_text = notification_text:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n'):gsub('\r', '\\r')
-    :gsub('\t', '\\t')
+        :gsub('\t', '\\t')
 
     -- Create JSON payload
     local payload = string.format('{"content":"%s"}', json_safe_text)
@@ -81,12 +81,12 @@ function Discord.send_notification(webhook_url, sender, message, chat_type, debu
     end
 end
 
-function Discord.test_webhook(webhook_url)
+function Discord.test_webhook(webhook_url, char_name)
     if not webhook_url or webhook_url == '' then
         return false, "No webhook URL configured"
     end
 
-    local payload = '{"content":"Ping test from TellNotifier addon"}'
+    local payload = string.format('{"content":"[%s] Ping test from TellNotifier addon"}', char_name or 'Unknown')
     local response_body = {}
 
     local request_result, response_code = https.request {

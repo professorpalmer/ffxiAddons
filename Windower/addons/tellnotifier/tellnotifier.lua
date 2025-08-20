@@ -31,7 +31,9 @@ local function send_notification(sender, message, chat_type)
     end
 
     local webhook_url = Config.get_webhook_for_chat_type(settings, chat_type)
-    Discord.send_notification(webhook_url, sender, message, chat_type, settings.debug_mode)
+    local player = windower.ffxi.get_player()
+    local char_name = player and player.name or 'Unknown'
+    Discord.send_notification(webhook_url, sender, message, chat_type, settings.debug_mode, char_name)
 end
 
 --[[
@@ -60,7 +62,7 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
     end
 
     -- Check cooldown
-    if not Chat.check_cooldown(chat_info.name, settings.cooldown, settings.enable_batching) then
+    if not Chat.check_cooldown(chat_info.name, settings) then
         if settings.debug_mode then
             windower.add_to_chat(123, string.format('TellNotifier: %s blocked due to cooldown', chat_info.name))
         end
@@ -207,7 +209,9 @@ windower.register_event('addon command', function(command, ...)
         windower.add_to_chat(123, 'TellNotifier: Testing webhook connection...')
         -- Test webhook asynchronously to prevent freezing
         coroutine.schedule(function()
-            local success, msg = Discord.test_webhook(settings.webhook_url)
+            local player = windower.ffxi.get_player()
+            local char_name = player and player.name or 'Unknown'
+            local success, msg = Discord.test_webhook(settings.webhook_url, char_name)
             if success then
                 windower.add_to_chat(123, 'TellNotifier: Ping test sent successfully. Check Discord for the message!')
             else
@@ -216,6 +220,8 @@ windower.register_event('addon command', function(command, ...)
         end, 0.1)
     elseif command == 'help' then
         Commands.show_help()
+    elseif command == 'multichar' then
+        Commands.show_multichar_help()
     else
         windower.add_to_chat(123, 'TellNotifier: Unknown command. Use //tn help for available commands')
     end

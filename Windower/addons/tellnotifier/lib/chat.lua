@@ -12,13 +12,20 @@ Chat.state = {
     last_outgoing_time = 0,
 }
 
-function Chat.check_cooldown(chat_type, cooldown_period, enable_batching)
+function Chat.check_cooldown(chat_type, settings)
+    local Config = require('lib/config')
     local current_time = os.time()
     local last_time = Chat.state.last_message_times[chat_type] or 0
+    
+    -- Get the cooldown period for this specific chat type
+    local cooldown_period = Config.get_cooldown_for_chat_type(settings, chat_type)
 
-    -- Use shorter cooldown for batched chat types
-    if enable_batching and (chat_type == 'Yell' or chat_type == 'Shout' or chat_type == 'Say') then
-        cooldown_period = 0.5
+    -- Use shorter cooldown for batched chat types if enabled
+    if settings.enable_batching and (chat_type == 'Yell' or chat_type == 'Shout' or chat_type == 'Say') then
+        -- Only override if no specific cooldown is set for this chat type
+        if not settings['cooldown_' .. chat_type:lower()] then
+            cooldown_period = 0.5
+        end
     end
 
     if current_time - last_time < cooldown_period then

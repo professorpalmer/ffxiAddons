@@ -30,6 +30,16 @@ Config.defaults = {
     enable_batching = true,
     batch_interval = 2,
 
+    -- Per-channel cooldowns (optional, uses global cooldown if not set)
+    cooldown_tell = nil,
+    cooldown_party = nil,
+    cooldown_linkshell1 = nil,
+    cooldown_linkshell2 = nil,
+    cooldown_say = nil,
+    cooldown_shout = nil,
+    cooldown_yell = nil,
+    cooldown_unity = nil,
+
     -- Per-chat-type webhook URLs
     webhook_tell = '',
     webhook_party = '',
@@ -102,6 +112,27 @@ function Config.get_webhook_for_chat_type(settings, chat_type)
         return specific_webhook
     else
         return settings.webhook_url
+    end
+end
+
+function Config.get_cooldown_for_chat_type(settings, chat_type)
+    local cooldown_map = {
+        Tell = settings.cooldown_tell,
+        Party = settings.cooldown_party,
+        Linkshell1 = settings.cooldown_linkshell1,
+        Linkshell2 = settings.cooldown_linkshell2,
+        Say = settings.cooldown_say,
+        Shout = settings.cooldown_shout,
+        Yell = settings.cooldown_yell,
+        Unity = settings.cooldown_unity,
+    }
+
+    local specific_cooldown = cooldown_map[chat_type]
+
+    if specific_cooldown and specific_cooldown > 0 then
+        return specific_cooldown
+    else
+        return settings.cooldown  -- Use global cooldown as fallback
     end
 end
 
