@@ -1,17 +1,19 @@
 # TellNotifier Addon (Windower Version)
 
 **Author:** Palmer (Zodiarchy @ Asura)  
-**Version:** 1.4 - Refactored & Optimized
+**Version:** 1.5 - Multi-Character Support & Enhanced
 
 This addon sends Discord notifications to your mobile phone when you receive chat messages in Final Fantasy XI.
 
-**Converted from Ashita to Windower** | **Now with Per-Channel Webhooks**
+**Converted from Ashita to Windower** | **Multi-Character Support** | **Per-Channel Webhooks**
 
 ## Features
 
+- **Multi-Character Support**: Run on multiple characters with automatic identification
 - **Per-Channel Webhooks**: Send different chat types to separate Discord channels
 - **Multi-Chat Support**: Monitor tells, party, linkshells, say, shout, yell, and unity
 - **Outgoing Message Support**: Track messages you send for complete chat logs
+- **Character Identification**: Every Discord message shows `[CharacterName]` prefix
 - **Intelligent Deduplication**: No more duplicate notifications
 - **Modular Architecture**: Clean, maintainable code structure
 - **Simple Commands**: Intuitive `//tn tell on` style commands
@@ -81,7 +83,24 @@ To send different chat types to separate Discord channels:
 
 **Available webhook types:** `webhook_tell`, `webhook_party`, `webhook_say`, `webhook_shout`, `webhook_yell`, `webhook_linkshell1`, `webhook_linkshell2`, `webhook_unity`
 
-### Step 6: Mobile Notifications
+### Step 6: Multi-Character Setup (New!)
+
+**Perfect for multi-boxing and managing multiple characters:**
+
+1. **Load addon on each character**: `//lua load tellnotifier`
+2. **Each character gets individual settings** automatically
+3. **Character identification**: All Discord messages show `[CharacterName]` prefix
+4. **Flexible webhook configuration**:
+   - **Same server**: All characters use same webhooks → same channels
+   - **Separate channels**: Use per-chat-type webhooks for organization
+   - **Mixed approach**: Some shared, some separate
+
+**Example Discord output:**
+- `[Palmer] FFXI Tell from Smacksterr: Hello!` (your main character)
+- `[AltChar] FFXI Tell from Guild: Alt check` (your alt character)
+- `[Mule] FFXI Tell from Banker: Storage full` (your mule character)
+
+### Step 7: Mobile Notifications
 
 1. **Install Discord mobile app** on your phone
 2. **Join your server** on mobile
@@ -100,6 +119,7 @@ To send different chat types to separate Discord channels:
 - `//tn debug` - Toggle debug mode
 - `//tn ping` - Test webhook connection
 - `//tn reload` - Reload settings
+- `//tn multichar` - Show multi-character setup instructions
 - `//tn help` - Show all commands
 
 ### Chat Monitoring Commands (New Simplified Syntax)
@@ -151,6 +171,13 @@ The addon uses a **modular architecture** for reliability:
 3. **Prevents duplicates** with timestamp-based deduplication
 4. **Tracks your sent messages** for complete chat logging
 
+### **Multi-Character Support:**
+
+1. **Automatic character detection** using `windower.ffxi.get_player()`
+2. **Character identification** added to all Discord messages
+3. **Individual settings per character** (Windower handles this automatically)
+4. **Coroutine protection** prevents game freezing during Discord requests
+
 ## Settings
 
 Settings are stored in `data/settings.xml` and include:
@@ -186,6 +213,13 @@ Settings are stored in `data/settings.xml` and include:
 - **monitor_unity**: Monitor unity chat (default: false)
 - **monitor_outgoing**: Monitor messages you send (default: false)
 
+### Multi-Character Settings
+
+- **Automatic**: Each character gets individual settings automatically
+- **Character identification**: All messages show `[CharacterName]` prefix
+- **Webhook configuration**: Can use same or different webhooks per character
+- **No additional setup**: Just load the addon on each character
+
 ## Troubleshooting
 
 ### "No webhook URL configured"
@@ -204,6 +238,13 @@ Settings are stored in `data/settings.xml` and include:
 
 - Check your webhook URL is correct
 - Verify internet connection
+
+### "HTTPS failing, falling back to curl"
+
+- **Multi-character fix**: Character detection moved to main thread
+- **Coroutine protection**: All Discord requests use `coroutine.schedule`
+- **Reliable HTTPS**: No more falling back to curl unless absolutely necessary
+- **Debug mode**: Use `//tn debug` to see detailed HTTPS error messages
 
 ## Requirements
 
@@ -276,6 +317,12 @@ If you encounter issues:
 
 ## Version History
 
+- **v1.5 (Multi-Character Enhanced)**: Enhanced multi-character support and reliability
+  - **Multi-character identification**: All Discord messages show `[CharacterName]` prefix
+  - **Coroutine protection**: Fixed HTTPS issues by moving character detection to main thread
+  - **Enhanced reliability**: No more falling back to curl unless absolutely necessary
+  - **Multi-char command**: `//tn multichar` for setup instructions
+  - **Perfect for multi-boxing**: Run on multiple characters simultaneously
 - **v1.4 (Refactored)**: Complete code refactor for maintainability and reliability
   - Modular architecture with separate lib modules
   - Eliminated duplicate notification issues
