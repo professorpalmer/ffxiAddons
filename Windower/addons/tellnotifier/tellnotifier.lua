@@ -69,7 +69,10 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
 
     -- Convert auto-translate and send notification
     local clean_message = windower.convert_auto_trans(message) or message
-    send_notification(sender, clean_message, chat_info.name)
+    -- Send notification asynchronously to prevent any potential freezing
+    coroutine.schedule(function()
+        send_notification(sender, clean_message, chat_info.name)
+    end, 0.1)
 
     if settings.debug_mode then
         windower.add_to_chat(123, string.format('TellNotifier: %s notification sent from %s', chat_info.name, sender))
@@ -132,7 +135,10 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         -- Check cooldown and send
         if Chat.check_cooldown(chat_type, settings.cooldown, settings.enable_batching) then
             local final_message = windower.convert_auto_trans(message) or message
-            send_notification(player_name, final_message, chat_type)
+            -- Send notification asynchronously to prevent game freeze
+            coroutine.schedule(function()
+                send_notification(player_name, final_message, chat_type)
+            end, 0.1)
         end
     elseif id == 0x0B6 then
         -- Tell packet
@@ -145,7 +151,10 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         -- Check cooldown and send
         if Chat.check_cooldown('Tell', settings.cooldown, settings.enable_batching) then
             local final_message = windower.convert_auto_trans(message) or message
-            send_notification(player_name, final_message, 'Tell')
+            -- Send notification asynchronously to prevent game freeze
+            coroutine.schedule(function()
+                send_notification(player_name, final_message, 'Tell')
+            end, 0.1)
         end
     end
 end)
@@ -172,7 +181,10 @@ windower.register_event('addon command', function(command, ...)
 
     -- Other commands
     if command == 'test' then
-        send_notification('TestUser', 'This is a test notification from TellNotifier addon.', 'Test')
+        -- Send test notification asynchronously
+        coroutine.schedule(function()
+            send_notification('TestUser', 'This is a test notification from TellNotifier addon.', 'Test')
+        end, 0.1)
         windower.add_to_chat(123, 'TellNotifier: Test notification sent to Discord.')
     elseif command == 'toggle' then
         settings.enabled = not settings.enabled
@@ -193,12 +205,15 @@ windower.register_event('addon command', function(command, ...)
         Commands.show_webhook_status(settings)
     elseif command == 'ping' then
         windower.add_to_chat(123, 'TellNotifier: Testing webhook connection...')
-        local success, msg = Discord.test_webhook(settings.webhook_url)
-        if success then
-            windower.add_to_chat(123, 'TellNotifier: Ping test sent successfully. Check Discord for the message!')
-        else
-            windower.add_to_chat(123, string.format('TellNotifier: Ping test failed. %s', msg))
-        end
+        -- Test webhook asynchronously to prevent freezing
+        coroutine.schedule(function()
+            local success, msg = Discord.test_webhook(settings.webhook_url)
+            if success then
+                windower.add_to_chat(123, 'TellNotifier: Ping test sent successfully. Check Discord for the message!')
+            else
+                windower.add_to_chat(123, string.format('TellNotifier: Ping test failed. %s', msg))
+            end
+        end, 0.1)
     elseif command == 'help' then
         Commands.show_help()
     else
