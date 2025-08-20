@@ -1,9 +1,11 @@
-<?xml version="1.1" ?>
+<?xml version="1.1"?>
 <settings>
     <global>
+        <batch_interval>2</batch_interval>
         <cooldown>1</cooldown>
         <debug_mode>false</debug_mode>
         <discord_enabled>true</discord_enabled>
+        <enable_batching>true</enable_batching>
         <enabled>true</enabled>
         <monitor_emotes>false</monitor_emotes>
         <monitor_linkshell1>false</monitor_linkshell1>
@@ -15,6 +17,16 @@
         <monitor_tells>true</monitor_tells>
         <monitor_unity>false</monitor_unity>
         <monitor_yell>false</monitor_yell>
-        <webhook_url>PASTE_YOUR_WEBHOOK_URL_HERE</webhook_url>
+        <!-- Main/Fallback Webhook URL -->
+        <webhook_url>INSERT_MAIN_WEBHOOK_URL_HERE</webhook_url>
+        <!-- Per-Chat-Type Webhook URLs -->
+        <webhook_tell>INSERT_TELL_WEBHOOK_URL_HERE</webhook_tell>
+        <webhook_party>INSERT_PARTY_WEBHOOK_URL_HERE</webhook_party>
+        <webhook_linkshell1>INSERT_LINKSHELL1_WEBHOOK_URL_HERE</webhook_linkshell1>
+        <webhook_linkshell2>INSERT_LINKSHELL2_WEBHOOK_URL_HERE</webhook_linkshell2>
+        <webhook_say>INSERT_SAY_WEBHOOK_URL_HERE</webhook_say>
+        <webhook_shout>INSERT_SHOUT_WEBHOOK_URL_HERE</webhook_shout>
+        <webhook_yell>INSERT_YELL_WEBHOOK_URL_HERE</webhook_yell>
+        <webhook_unity>INSERT_UNITY_WEBHOOK_URL_HERE</webhook_unity>
     </global>
 </settings>
