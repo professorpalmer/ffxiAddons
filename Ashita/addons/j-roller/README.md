@@ -132,6 +132,7 @@ The comprehensive settings interface accessed with `/roller menu` or the gear ic
 ```bash
 /roller snakeeye on|off    # Manual Snake Eye control
 /roller fold on|off        # Manual Fold control
+/roller resetgui           # Reset GUI position to default
 /roller debug              # Show internal state for troubleshooting
 ```
 
