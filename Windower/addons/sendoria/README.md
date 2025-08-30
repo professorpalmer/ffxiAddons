@@ -5,22 +5,51 @@ Chat between FFXI and Discord seamlessly!
 ## Quick Setup
 
 ### 1. Install the Addon
-- Copy `sendoria` folder to your Windower addons
-- In FFXI: `//lua load sendoria`
+- Copy `sendoria` folder to your Windower/addons folder.
 
-### 2. Set Up Discord Bot
+### 2. Create Discord Server & Channels
+- **Create a Discord server** (if you don't have one):
+  - Click the + button in Discord → "Create My Own"
+- **Create channels** for the chat types you want:
+  - Right-click your server → Create Channel
+  - Suggested channel names:
+    - `#tells` - For private messages
+    - `#party` - For party chat
+    - `#linkshell-1` - For LS1 chat
+    - `#linkshell-2` - For LS2 chat
+    - `#say` - For local chat
+    - `#shout` - For shouts
+    - `#yell` - For yells
+    - `#unity` - For unity chat
+
+### 3. Set Up Discord Bot
 - Create a bot at [Discord Developer Portal](https://discord.com/developers/applications)
-- **Enable Message Content Intent**: Bot → Privileged Gateway Intents → Toggle ON "Message Content Intent"
+- **Enable Message Content Intent**: Sidebar → Bot → Privileged Gateway Intents → Toggle ON "Message Content Intent"
 - Copy the bot token to `sendoria_config.txt`
-- **Invite bot to your server**: Bot → OAuth2 → URL Generator → Select "bot" → Select permissions: "Send Messages", "Read Message History", "React to messages" → Copy URL and open it
+- **Invite bot to your server**: Sidebar → OAuth2 → URL Generator → Select "bot" which will enable a drop down menu → Drop down menu → Select permissions: 
+    - "Send Messages"
+    - "Read Message History"
+    - "Manage Messages"
+    - "Add Reactions"
+Scroll down to "generated URL" → Copy URL and open it
 
-### 3. Configure Channels (sendoria_config.txt)
-- Right-click Discord channels → Copy ID
+### 4. Configure Channels (sendoria_config.txt)
+- Enable Developer Options: Discord Settings → Advanced → Developer Mode
+- Right-click each channel → Copy ID
 - Add channel IDs to config file
 
-### 4. Run the Bot
-- Double-click `SendoriaBot.exe`
-- That's it!
+### 5. Run the Bot
+- Double-click `SendoriaBot.exe` (accept the Windows security warning)
+- Keep it running for as long as you want to use the relay
+
+### 6. Enable Relay in FFXI
+Run these commands to start relaying:
+- `//lua l sendoria` - Load the addon
+- `//send relay on` - Enable relay mode
+- `//send tell on` - Enable tell relay
+- `//send outgoing on` - Show your character's own sent messages (optional)
+- `//send party on` - Enable party relay (optional)
+- `//send ls1 on` - Enable linkshell relay (optional)
 
 ## How to Use
 
@@ -37,7 +66,9 @@ Chat between FFXI and Discord seamlessly!
 ## Troubleshooting
 - Make sure bot token is correct
 - Check channel IDs are valid
-- Bot needs "Send Messages" and "Read Message History" permissions
+- Verify relay is enabled: `//send relay on`
+- Check specific chat types are enabled: `//send status`
+- Bot needs Message Content Intent enabled in Discord Developer Portal
 
 ---
 Ready to go! Your chats now sync between FFXI and Discord. 🎮💬
