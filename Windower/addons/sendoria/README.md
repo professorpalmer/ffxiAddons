@@ -10,8 +10,9 @@ Chat between FFXI and Discord seamlessly!
 
 ### 2. Set Up Discord Bot
 - Create a bot at [Discord Developer Portal](https://discord.com/developers/applications)
+- **Enable Message Content Intent**: Bot → Privileged Gateway Intents → Toggle ON "Message Content Intent"
 - Copy the bot token to `sendoria_config.txt`
-- **Invite bot to your server**: Bot → OAuth2 → URL Generator → Select "bot" → Select permissions: "Send Messages", "Read Message History" → Copy URL and open it
+- **Invite bot to your server**: Bot → OAuth2 → URL Generator → Select "bot" → Select permissions: "Send Messages", "Read Message History", "React to messages" → Copy URL and open it
 
 ### 3. Configure Channels (sendoria_config.txt)
 - Right-click Discord channels → Copy ID
