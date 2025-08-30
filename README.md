@@ -1,4 +1,8 @@
-Just some stuff I've cobbled together as I've been requested / developed a need for it.
+Home of the best COR roller (J-Roller Enhanced) and FFXI Discord chat integration (Sendoria)
+
+
+
+This is some stuff I've cobbled together as I've been requested / developed a need for it.
 
 A handful of these addons (AutoCor, J-roller, Checker, etc) are already existing addons that I've made modifications to for personal use/fixes/improvements. 
 Make sure to check them out to see the differences!
