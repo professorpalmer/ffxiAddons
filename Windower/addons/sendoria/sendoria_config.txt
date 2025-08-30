@@ -1,24 +1,23 @@
 # Sendoria Discord Bot Configuration
-# Copy this file to 'sendoria_config.txt' and edit as needed
 
 # Your Discord bot token (get from https://discord.com/developers/applications)
-BOT_TOKEN=MTQxMTE2ODQ2Njk3MDYwNzY0Ng.GQqdk3.2jdHebZkV4PQ1O_UUrX-hrR9zo2i9fNz2REWX8
+BOT_TOKEN=YOUR_BOT_TOKEN_HERE
 
 # Discord channel IDs for each chat type
 # Right-click each channel in Discord → 'Copy ID' to get these numbers
-CHANNEL_Tell=1407645640900739153
-CHANNEL_Party=1407645754209730561
-CHANNEL_Linkshell1=1407645723557625937
-CHANNEL_Linkshell2=1407645740594892831
-CHANNEL_Say=1407645664208355410
-CHANNEL_Shout=1407645678884229222
-CHANNEL_Yell=1407645688291917864
-CHANNEL_Unity=1407645764913598535
+CHANNEL_Tell=YOUR_TELL_CHANNEL_ID
+CHANNEL_Party=YOUR_PARTY_CHANNEL_ID
+CHANNEL_Linkshell1=YOUR_LS1_CHANNEL_ID
+CHANNEL_Linkshell2=YOUR_LS2_CHANNEL_ID
+CHANNEL_Say=YOUR_SAY_CHANNEL_ID
+CHANNEL_Shout=YOUR_SHOUT_CHANNEL_ID
+CHANNEL_Yell=YOUR_YELL_CHANNEL_ID
+CHANNEL_Unity=YOUR_UNITY_CHANNEL_ID
 
 # ========================================
 # SETUP INSTRUCTIONS:
 # ========================================
-# 1. Copy this file to 'sendoria_config.txt'
+# 1. Make sure your file is named sendoria_config.txt
 # 2. Edit the bot token if needed
 # 3. Edit channel IDs to match your Discord server
 # 4. Save the file
