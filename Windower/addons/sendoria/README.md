@@ -1,13 +1,13 @@
-# Sendoria - Bidirectional Discord Chat Relay
+# 🚀 Sendoria - Bidirectional Discord Chat Relay
 
 **Author:** Palmer (Zodiarchy @ Asura)  
 **Version:** 2.0 - Bidirectional Relay
 
 Send messages from Discord to FFXI and from FFXI to Discord. Chat with your linkshell, party, or friends even when you're not at your computer!
 
-**Features:** Full Bidirectional Relay | Zero Network Lag | All Chat Types Supported
+**Features:** Full Bidirectional Relay | Zero Network Lag | All Chat Types Supported | No Python Required!
 
-## What It Does
+## 🎯 **What It Does**
 
 - **FFXI → Discord**: Your game chat appears in Discord channels
 - **Discord → FFXI**: Type in Discord, messages appear in your game
@@ -15,72 +15,74 @@ Send messages from Discord to FFXI and from FFXI to Discord. Chat with your link
 - **User Attribution**: Shows `[Username]` for Discord messages so you know who's talking
 - **All Chat Types**: Party, Linkshells, Say, Shout, Yell, Unity, Tells
 - **No Lag**: File-based system eliminates network delays
-- **Easy Setup**: Simple configuration with helper script
+- **Easy Setup**: Just run the executable!
 
-## Quick Setup (5 Minutes)
+## ⚡ **Quick Setup (2 Minutes - No Python!)**
 
-### Step 1: Install Sendoria
+### **Step 1: Install the Addon**
 1. **Extract** the `sendoria` folder to your Windower addons directory
 2. **Load in FFXI**: `//lua load sendoria`
 
-### Step 2: Create Discord Bot
-1. Go to https://discord.com/developers/applications
-2. Click **"New Application"** → Name it "Sendoria Bot"
-3. Go to **"Bot"** → Click **"Add Bot"** → **Copy the token**
-4. **Important**: Enable **"Message Content Intent"** in Privileged Gateway Intents
-5. Go to **"OAuth2" → "URL Generator"** → Check **"bot"**
-6. Check permissions: **Send Messages**, **Read Messages**, **Add Reactions**
-7. **Use the generated URL** to invite bot to your Discord server
+### **Step 2: Run the Discord Bot**
+1. **Double-click** `SendoriaBot.exe`
+2. **Watch** the console for connection status
+3. **Done!** Your Discord bot is running
 
-### Step 3: Create Discord Channels
-Create channels in your Discord server for the chat types you want:
-- `#tells` - For tell messages
-- `#party` - For party chat
-- `#linkshell1` - For LS1 chat
-- `#linkshell2` - For LS2 chat
-- `#say` - For local chat
-- `#shout` - For zone shouts
-- `#yell` - For yell chat
+**No Python installation required!** The executable includes everything needed.
 
-### Step 4: Install Python (One-Time Setup)
-**If you don't have Python installed:**
-1. **Download Python**: Go to https://www.python.org/downloads/
-2. **Install Python**: Run the installer, **check "Add Python to PATH"**
-3. **Test installation**: Open Command Prompt, type `python --version`
-4. **Install Discord library**: `pip install discord.py`
+## 🔧 **Configuration Details**
 
-**If you already have Python:**
-- Just run: `pip install discord.py`
+### **Bot Token**
+Your Discord bot token is already in the config file. If you need to change it:
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create/select your application
+3. Go to "Bot" section
+4. Copy the token and replace in `sendoria_config.txt`
 
-### Step 5: Easy Configuration
-**Option A: Automatic Setup (Recommended)**
-1. **Run setup**: `python config.py`
-2. **Follow prompts**: Enter your bot token and channel IDs
-3. **Done!** The script configures everything for you
+### **Channel IDs**
+All 8 chat types are configured:
+- **Tell**: Private messages
+- **Party**: Party chat
+- **Linkshell1/2**: Linkshell chat
+- **Say**: Local area chat
+- **Shout**: Zone-wide chat
+- **Yell**: Server-wide chat
+- **Unity**: Unity chat
 
-**Option B: Manual Setup**
-1. **Enable Developer Mode** in Discord (Settings → Advanced → Developer Mode)
-2. **Get Channel IDs**: Right-click each channel → "Copy ID"
-3. **Edit** `discord_bot.py` with a text editor:
-   - Replace `YOUR_DISCORD_BOT_TOKEN_HERE` with your bot token
-   - Replace each `000000000000000000` with your channel IDs
+To change channel IDs:
+1. Right-click any Discord channel
+2. Select "Copy ID"
+3. Replace the number in `sendoria_config.txt`
 
-### Step 6: Start the System
-1. **Run Discord bot**: `python discord_bot.py`
-2. **Enable relay in FFXI**: `//send relay on`
-3. **Enable chat types**: `//send tell on`, `//send party on`, etc.
+## 📱 **Discord Commands**
 
-### Step 7: Test It
-- **Send a message in FFXI** → Should appear in Discord
-- **Type in a Discord channel** → Should appear in FFXI
-- **Send tells**: Type `/tell PlayerName message` in #tells channel
+### **Send Messages to FFXI**
+- **Regular chat**: Just type in any configured channel
+- **Tell someone**: `/tell PlayerName message` or `/t PlayerName message`
+- **Bot will react** with ✅ when message is processed
 
-## Usage
+### **Message Format**
+- **From Discord**: `[DiscordUsername] message`
+- **To Discord**: `📤/📥 ChatType: PlayerName: message`
 
-### From FFXI to Discord
+## 🎮 **FFXI Addon Setup**
+
+Make sure you have the Sendoria addon loaded in Windower:
+```lua
+//lua load sendoria
+```
+
+The addon will automatically:
+- Create relay files for the bot to read
+- Inject Discord messages into your game chat
+- Handle all chat types you've configured
+
+## 📝 **Usage**
+
+### **From FFXI to Discord**
 Just play normally! Your chat messages automatically appear in Discord channels.
 
-### From Discord to FFXI
+### **From Discord to FFXI**
 **Regular Messages**: Type normally in Discord channels
 - `Hello everyone!` in #party → Appears as `YourName: [DiscordUser] Hello everyone!` in FFXI
 - `Looking for party` in #say → Appears as `YourName: [DiscordUser] Looking for party` in FFXI
@@ -91,14 +93,14 @@ Just play normally! Your chat messages automatically appear in Discord channels.
 
 **User Attribution**: All Discord messages show `[Username]` so your linkshell knows who's actually talking!
 
-## Commands
+## 🎮 **FFXI Commands**
 
-### Basic Commands
+### **Basic Commands**
 - `//send` - Show current status
 - `//send help` - Show all commands
 - `//send relay on/off` - Enable/disable relay mode
 
-### Enable Chat Types
+### **Enable Chat Types**
 - `//send tell on` - Enable tell monitoring
 - `//send party on` - Enable party chat relay
 - `//send ls1 on` - Enable Linkshell 1 relay
@@ -108,43 +110,52 @@ Just play normally! Your chat messages automatically appear in Discord channels.
 - `//send yell on` - Enable yell relay
 - `//send outgoing on` - Track messages you send
 
-### Status & Maintenance
+### **Status & Maintenance**
 - `//send status` - Show what's being monitored
 - `//send relay` - Show relay configuration
 - `//send clean` - Clean old chat logs
 - `//send debug on/off` - Toggle debug mode
 
-## Troubleshooting
+## 🚨 **Troubleshooting**
 
-### Bot Won't Connect
-- Double-check your bot token in `discord_bot.py`
-- Make sure "Message Content Intent" is enabled in Discord Developer Portal
-- Verify you ran `pip install discord.py`
+### **Bot Won't Start**
+- Check your bot token is correct in `sendoria_config.txt`
+- Verify channel IDs are valid numbers
+- Make sure bot has permissions in your Discord server
 
-### Messages Not Appearing in Game
-- Check `//send relay` - make sure relay mode is enabled
-- Check `//send status` - make sure chat types are enabled
-- Make sure Discord bot is running (`python discord_bot.py`)
+### **No Messages in Discord**
+- Verify the Sendoria addon is loaded in FFXI
+- Check bot has "Send Messages" permission in channels
+- Look for error messages in the console
 
-### Messages Not Appearing in Discord
-- Make sure bot is running and shows "connected to Discord"
-- Check channel IDs in `discord_bot.py` are correct
-- Make sure bot has permissions in Discord channels
+### **No Messages in FFXI**
+- Check bot has "Read Message History" permission
+- Verify channel IDs match your Discord server
+- Look for error messages in the console
 
-### Need Help?
+### **Need Help?**
 - Enable debug mode: `//send debug on`
 - Check both the FFXI console and Discord bot console for error messages
 - Make sure both the addon and Discord bot are running
 
-## Requirements
+## 🔒 **Security Notes**
+
+- **Never share** your bot token publicly
+- **Keep** `sendoria_config.txt` private
+- **Bot only reads** messages in configured channels
+- **Bot only sends** to configured channels
+
+## 📋 **Requirements**
 
 - **Windower 4**
-- **Python 3.7+** (for Discord bot) - **Free download from python.org**
 - **Discord account** and server
 - **Internet connection** (for Discord bot only)
-
-**Note:** Python is required for the Discord bot.
+- **No Python installation required!**
 
 ---
 
-**Enjoy chatting with your FFXI friends from anywhere!** 🎮💬
+## 🎉 **Enjoy Your Bidirectional Discord Chat Relay!**
+
+Your FFXI chat will now appear in Discord, and Discord messages will appear in your game. No more switching between applications! 🚀
+
+**Ready to use immediately** - just run `SendoriaBot.exe` and enjoy chatting with your FFXI friends from anywhere! 🎮💬

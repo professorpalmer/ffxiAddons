@@ -33,5 +33,7 @@
         <relay_log_all_chat>true</relay_log_all_chat>
         <response_file_path>discord_responses.txt</response_file_path>
     </global>
-
+    <smacksterr>
+        <relay_enabled>true</relay_enabled>
+    </smacksterr>
 </settings>
