@@ -1,0 +1,37 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <batch_interval>2</batch_interval>
+        <cooldown>1</cooldown>
+        <debug_mode>false</debug_mode>
+        <discord_bot_token>
+
+        </discord_bot_token>
+        <discord_channel_linkshell1>0</discord_channel_linkshell1>
+        <discord_channel_linkshell2>0</discord_channel_linkshell2>
+        <discord_channel_party>0</discord_channel_party>
+        <discord_channel_say>0</discord_channel_say>
+        <discord_channel_shout>0</discord_channel_shout>
+        <discord_channel_tell>0</discord_channel_tell>
+        <discord_channel_unity>0</discord_channel_unity>
+        <discord_channel_yell>0</discord_channel_yell>
+        <enable_batching>true</enable_batching>
+        <enabled>true</enabled>
+        <monitor_emotes>false</monitor_emotes>
+        <monitor_linkshell1>false</monitor_linkshell1>
+        <monitor_linkshell2>false</monitor_linkshell2>
+        <monitor_outgoing>false</monitor_outgoing>
+        <monitor_party>false</monitor_party>
+        <monitor_say>false</monitor_say>
+        <monitor_shout>false</monitor_shout>
+        <monitor_tells>true</monitor_tells>
+        <monitor_unity>false</monitor_unity>
+        <monitor_yell>false</monitor_yell>
+        <relay_enabled>false</relay_enabled>
+        <relay_file_path>chat_relay.txt</relay_file_path>
+        <relay_interval>0.5</relay_interval>
+        <relay_log_all_chat>true</relay_log_all_chat>
+        <response_file_path>discord_responses.txt</response_file_path>
+    </global>
+
+</settings>
