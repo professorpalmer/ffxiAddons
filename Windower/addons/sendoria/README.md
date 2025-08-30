@@ -31,7 +31,8 @@ Chat between FFXI and Discord seamlessly!
     - "Read Message History"
     - "Manage Messages"
     - "Add Reactions"
-Scroll down to "generated URL" → Copy URL and open it
+
+**Scroll down to "generated URL" → Copy URL and open it in a web browser. Invite the bot to your created server.**
 
 ### 4. Configure Channels (sendoria_config.txt)
 - Enable Developer Options: Discord Settings → Advanced → Developer Mode
