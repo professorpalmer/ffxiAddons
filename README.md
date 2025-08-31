@@ -1,6 +1,4 @@
-Home of the best COR roller (J-Roller Enhanced) and FFXI Discord chat integration (Sendoria)
-
-
+**Home of J-Roller Enhanced and Send'Oria!**
 
 This is some stuff I've cobbled together as I've been requested / developed a need for it.
 
