@@ -46,6 +46,11 @@ Config.defaults = {
     response_file_path = 'discord_responses.txt',
     relay_interval = 0.5,
     relay_log_all_chat = true,
+
+    -- Auto-start Discord bot settings
+    auto_start_bot = false,
+    bot_executable_path = 'SendoriaBot_Silent.exe', -- Use silent version by default
+    bot_process_name = 'SendoriaBot_Silent.exe',
 }
 
 -- Chat mode lookup table

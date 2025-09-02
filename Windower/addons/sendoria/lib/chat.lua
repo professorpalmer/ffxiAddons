@@ -92,18 +92,11 @@ function Chat.write_to_relay_file(chat_type, sender, message, direction)
     local settings = Config.load()
 
     if not settings.relay_enabled then
-        if settings.debug_mode then
-            windower.add_to_chat(123, 'Sendoria RELAY DEBUG: Relay disabled, not writing to file')
-        end
         return
     end
 
     local file_path = windower.addon_path .. settings.relay_file_path
-    if settings.debug_mode then
-        windower.add_to_chat(123, string.format('Sendoria RELAY DEBUG: Attempting to write to: %s', file_path))
-        windower.add_to_chat(123,
-            string.format('Sendoria RELAY DEBUG: %s | %s | %s | %s', direction, chat_type, sender, message))
-    end
+
 
     -- Use async file writing to prevent I/O blocking during yell spam
     coroutine.schedule(function()
@@ -115,13 +108,6 @@ function Chat.write_to_relay_file(chat_type, sender, message, direction)
             file:write(entry)
             file:flush() -- Force immediate write to disk
             file:close()
-            if settings.debug_mode then
-                windower.add_to_chat(123, 'Sendoria RELAY DEBUG: File written successfully')
-            end
-        else
-            if settings.debug_mode then
-                windower.add_to_chat(123, string.format('Sendoria RELAY DEBUG: Failed to open file: %s', file_path))
-            end
         end
     end, 0.001) -- Tiny delay to make it non-blocking
 end

@@ -1,0 +1,43 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <active>true</active>
+        <aoe>
+            <p1>true</p1>
+            <p2>true</p2>
+            <p3>true</p3>
+            <p4>true</p4>
+            <p5>true</p5>
+        </aoe>
+        <autora>false</autora>
+        <crooked_cards>1</crooked_cards>
+        <delay>4.2</delay>
+        <roll>Corsair&apos;s Roll,Chaos Roll</roll>
+        <text>
+            <text>
+                <size>10</size>
+            </text>
+        </text>
+        <top_left>
+            <x>100</x>
+            <y>100</y>
+        </top_left>
+        <ui_hidden>false</ui_hidden>
+        <user_ui_scalar>1</user_ui_scalar>
+    </global>
+    <smacksterr>
+        <aoe>
+            <p1>false</p1>
+            <p2>false</p2>
+            <p3>false</p3>
+            <p4>false</p4>
+            <p5>false</p5>
+        </aoe>
+        <crooked_cards>0</crooked_cards>
+        <roll>Corsair&apos;s Roll,none</roll>
+        <top_left>
+            <x>397</x>
+            <y>87</y>
+        </top_left>
+    </smacksterr>
+</settings>

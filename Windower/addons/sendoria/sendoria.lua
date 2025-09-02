@@ -8,7 +8,7 @@ _addon.name     = 'Sendoria'
 _addon.author   = 'Palmer (Zodiarchy @ Asura)'
 _addon.version  = '2.0'
 _addon.desc     = 'Bidirectional Discord chat relay for FFXI.'
-_addon.commands = { 'sendoria', 'send' }
+_addon.commands = { 'sendoria', 'sn' }
 
 require('tables')
 require('strings')
@@ -23,6 +23,8 @@ local settings = Config.load()
 
 -- Relay timer for checking Discord responses
 local relay_timer = 0
+
+
 
 --[[
 * Main notification handler
@@ -40,8 +42,6 @@ local function send_notification(sender, message, chat_type)
     if settings.relay_enabled and settings.relay_log_all_chat then
         if not Chat.is_discord_originated_message(chat_type, message) then
             Chat.write_to_relay_file(chat_type, sender, message, 'IN')
-        elseif settings.debug_mode then
-            windower.add_to_chat(123, string.format('Sendoria: Skipping Discord-originated message: %s', message))
         end
     end
 
@@ -52,19 +52,9 @@ end
 * Chat message event handler
 --]]
 windower.register_event('chat message', function(message, sender, mode, is_gm)
-    if settings.debug_mode then
-        windower.add_to_chat(123,
-            string.format('Sendoria DEBUG: Mode=%d, Sender=%s, Message=%s', mode or -1, sender or 'nil',
-                message or 'nil'))
-    end
-
     -- Skip our own messages if outgoing monitoring is enabled (handled by outgoing chunk event)
     local player = windower.ffxi.get_player()
     if player and sender == player.name and settings.monitor_outgoing then
-        if settings.debug_mode then
-            windower.add_to_chat(123,
-                'Sendoria DEBUG: Skipping own message in chat event (handled by outgoing chunk)')
-        end
         return
     end
 
@@ -75,9 +65,6 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
 
     -- Check cooldown
     if not Chat.check_cooldown(chat_info.name, settings) then
-        if settings.debug_mode then
-            windower.add_to_chat(123, string.format('Sendoria: %s blocked due to cooldown', chat_info.name))
-        end
         return
     end
 
@@ -87,10 +74,6 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
     coroutine.schedule(function()
         send_notification(sender, clean_message, chat_info.name)
     end, 0.1)
-
-    if settings.debug_mode then
-        windower.add_to_chat(123, string.format('Sendoria: %s notification sent from %s', chat_info.name, sender))
-    end
 end)
 
 --[[
@@ -112,11 +95,7 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         return
     end
 
-    if settings.debug_mode and (id == 0x0B5 or id == 0x0B6) then
-        windower.add_to_chat(123,
-            string.format('Sendoria DEBUG: Outgoing packet 0x%03X - modified=%s, size=%d', id, tostring(modified),
-                #data))
-    end
+
 
     local player_name = windower.ffxi.get_player().name or 'Unknown'
 
@@ -125,26 +104,16 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         local mode, message, chat_type = Chat.parse_outgoing_speech_packet(data)
 
         if not mode then
-            if settings.debug_mode and chat_type then
-                windower.add_to_chat(123, 'Sendoria DEBUG: ' .. chat_type)
-            end
             return
         end
 
         -- Check for duplicates
         local is_duplicate, time_diff = Chat.is_duplicate_outgoing(mode, message)
         if is_duplicate then
-            if settings.debug_mode then
-                windower.add_to_chat(123,
-                    string.format('Sendoria DEBUG: Duplicate outgoing message detected - skipping (time_diff=%.3f)',
-                        time_diff))
-            end
             return
         end
 
-        if settings.debug_mode then
-            windower.add_to_chat(123, string.format('Sendoria DEBUG: Outgoing %s - Message=%s', chat_type, message))
-        end
+
 
         -- Check cooldown and send
         if Chat.check_cooldown(chat_type, settings) then
@@ -158,9 +127,7 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         -- Tell packet
         local target, message = Chat.parse_outgoing_tell_packet(data)
 
-        if settings.debug_mode then
-            windower.add_to_chat(123, string.format('Sendoria DEBUG: Outgoing Tell to %s: %s', target, message))
-        end
+
 
         -- Check cooldown and send
         if Chat.check_cooldown('Tell', settings) then
@@ -188,18 +155,10 @@ windower.register_event('prerender', function()
         -- Check for Discord responses
         local responses = Chat.read_discord_responses(settings)
         for i, response in ipairs(responses) do
-            if settings.debug_mode then
-                windower.add_to_chat(123, string.format('Sendoria RELAY: Processing %s response: %s',
-                    response.chat_type, response.message))
-            end
-
             -- Add a small delay between messages to prevent flooding
             coroutine.schedule(function()
                 local success, error_msg = Chat.inject_message_to_game(response.chat_type, response.message,
-                response.target)
-                if not success and settings.debug_mode then
-                    windower.add_to_chat(123, string.format('Sendoria RELAY ERROR: %s', error_msg))
-                end
+                    response.target)
             end, (i - 1) * 0.5) -- 0.5 second delay between each message
         end
     end
@@ -226,30 +185,16 @@ windower.register_event('addon command', function(command, ...)
     end
 
     -- Other commands
-    if command == 'test' then
-        -- Send test notification asynchronously (now goes to relay file for bot to process)
-        coroutine.schedule(function()
-            send_notification('TestUser', 'This is a test notification from Sendoria addon.', 'Test')
-        end, 0.1)
-        windower.add_to_chat(123, 'Sendoria: Test notification sent to relay file for Discord bot.')
-    elseif command == 'toggle' then
+    if command == 'toggle' then
         settings.enabled = not settings.enabled
         Config.save(settings)
         windower.add_to_chat(123,
             string.format('Sendoria: Notifications %s', settings.enabled and 'enabled' or 'disabled'))
-    elseif command == 'debug' then
-        settings.debug_mode = not settings.debug_mode
-        Config.save(settings)
-        windower.add_to_chat(123,
-            string.format('Sendoria: Debug mode %s', settings.debug_mode and 'enabled' or 'disabled'))
     elseif command == 'reload' then
         Config.reload(settings)
         windower.add_to_chat(123, 'Sendoria: Settings reloaded.')
     elseif command == 'status' then
         Commands.show_monitoring_status(settings)
-    elseif command == 'ping' then
-        windower.add_to_chat(123, 'Sendoria: Testing Discord bot connection...')
-        windower.add_to_chat(123, 'Make sure the Discord bot (discord_bot.py) is running!')
     elseif command == 'help' then
         Commands.show_help()
     elseif command == 'multichar' then
@@ -260,12 +205,92 @@ windower.register_event('addon command', function(command, ...)
         else
             Commands.show_relay_status(settings)
         end
+    elseif command == 'autostart' then
+        if #args >= 1 then
+            Commands.toggle_autostart(settings, args[1]:lower(), function() Config.save(settings) end)
+        else
+            windower.add_to_chat(123, 'Sendoria: Auto-start is ' .. (settings.auto_start_bot and 'ENABLED' or 'DISABLED'))
+            windower.add_to_chat(123, 'Usage: //sn autostart <on/off>')
+        end
     elseif command == 'clean' then
         Commands.clean_relay_files(settings)
+    elseif command == 'stop' then
+        -- Create shutdown signal file for Discord bot
+        local shutdown_file = windower.addon_path .. 'bot_shutdown.txt'
+        local file = io.open(shutdown_file, 'w')
+        if file then
+            file:write('SHUTDOWN')
+            file:close()
+            windower.add_to_chat(123, 'Sendoria: Shutdown signal sent to Discord bot.')
+        else
+            windower.add_to_chat(123, 'Sendoria: Failed to create shutdown signal file.')
+        end
     else
-        windower.add_to_chat(123, 'Sendoria: Unknown command. Use //send help for available commands')
+        windower.add_to_chat(123, 'Sendoria: Unknown command. Use //sn help for available commands')
     end
 end)
 
+--[[
+* Auto-start Discord bot when addon loads
+--]]
+local function auto_start_discord_bot()
+    if settings.auto_start_bot then
+        local addon_path = windower.addon_path or ''
+
+        -- Try multiple approaches to start the bot
+        local bot_paths = {
+            addon_path .. 'SendoriaBot_Silent.exe', -- Silent version (no console window)
+            addon_path .. 'SendoriaBot.exe'         -- Console version as fallback
+        }
+
+        windower.add_to_chat(123, 'Sendoria: Auto-starting Discord bot...')
+
+        local bot_started = false
+        for i, bot_path in ipairs(bot_paths) do
+            local file = io.open(bot_path, "r")
+            if file then
+                file:close()
+
+                -- Start the bot using the working method
+                os.execute('cd /d "' .. addon_path .. '" && start "" "' .. bot_path .. '"')
+                bot_started = true
+                windower.add_to_chat(123, 'Sendoria: Discord bot started')
+                break
+            end
+        end
+
+        if not bot_started then
+            windower.add_to_chat(123, 'Sendoria: Auto-start enabled but no bot executable found.')
+            windower.add_to_chat(123,
+                'Sendoria: Please ensure SendoriaBot.exe or SendoriaBot_Silent.exe is in the addon folder.')
+        end
+    end
+end
+
+--[[
+* Auto-stop Discord bot when addon unloads
+--]]
+local function auto_stop_discord_bot()
+    if settings.auto_start_bot then
+        windower.add_to_chat(123, 'Sendoria: Auto-stopping Discord bot...')
+
+        -- Stop both versions of the bot
+        os.execute('taskkill /F /IM "SendoriaBot_Silent.exe" >nul 2>&1')
+        os.execute('taskkill /F /IM "SendoriaBot.exe" >nul 2>&1')
+
+        windower.add_to_chat(123, 'Sendoria: Discord bot stopped')
+    end
+end
+
+--[[
+* Addon unload event handler
+--]]
+windower.register_event('unload', function()
+    auto_stop_discord_bot()
+end)
+
+-- Auto-start the Discord bot on addon load
+coroutine.schedule(auto_start_discord_bot, 2.0) -- Delay 2 seconds to let addon fully initialize
+
 -- Print startup message
-windower.add_to_chat(123, 'Sendoria: Loaded successfully. Use //send help for commands.')
+windower.add_to_chat(123, 'Sendoria: Loaded successfully. Use //sn help for commands.')
