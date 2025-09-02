@@ -53,7 +53,8 @@ local defaultSettings = T {
     burnsnakeeye = true,   -- Use Snake Eye liberally on rolls 6+ when ending (merited Snake Eye has 40% chance for 11)
     hasSnakeEye = true,    -- true = enabled, false = disabled
     hasFold = true,        -- true = enabled, false = disabled
-    -- ImGui window settings
+    -- GUI window settings
+    showJGUI = true,       -- Show/hide main J-GUI overlay
     showImGuiMenu = false, -- Show/hide ImGui menu
     imguiMenuX = 100,      -- ImGui window X position
     imguiMenuY = 100,      -- ImGui window Y position
@@ -277,6 +278,15 @@ local function mainLoop()
     end
 end
 
+local gear_size = ffi.new('D3DXVECTOR2', { 16.0, 16.0, });
+local gear_rect = ffi.new('RECT', { 0, 0, 16, 16 });
+
+-- Store reference to UI container for toggling visibility
+local mainUI = nil;
+
+-- Forward declaration - will be defined after createMainUI function
+local toggleJGUI;
+
 -- Initialize ImGui interface
 local imguiInterface = ImGuiInterface.new({
     settings = settings,
@@ -303,11 +313,9 @@ local commandHandler = CommandHandler.new({
     imguiInterface = imguiInterface,
 });
 
-local gear_size = ffi.new('D3DXVECTOR2', { 16.0, 16.0, });
-local gear_rect = ffi.new('RECT', { 0, 0, 16, 16 });
--- GUI setup
-ashita.events.register('load', 'jroller_gui_load', function()
-    local UI = GUI.Container:new({
+-- Function to create the main UI
+local function createMainUI()
+    mainUI = GUI.Container:new({
         layout = GUI.Container.LAYOUT.GRID,
         girdRows = 3,
         gridCols = 2,
@@ -327,9 +335,7 @@ ashita.events.register('load', 'jroller_gui_load', function()
         end
     });
 
-    GUI.ctx.addView(UI);
-
-    UI:addView(
+    mainUI:addView(
         GUI.ToggleButton:new({
             variable = enabled,
             activeColor = T { 0, 55, 255 },
@@ -401,6 +407,48 @@ ashita.events.register('load', 'jroller_gui_load', function()
             end
         })
     );
+    
+    GUI.ctx.addView(mainUI);
+end
+
+-- Function to destroy the main UI
+local function destroyMainUI()
+    if mainUI then
+        -- Check if removeView method exists and is a function
+        if GUI.ctx and type(GUI.ctx.removeView) == "function" then
+            GUI.ctx.removeView(mainUI);
+        else
+            -- Fallback: try to remove from children table directly
+            if GUI.ctx and GUI.ctx.children then
+                for i, v in ipairs(GUI.ctx.children) do
+                    if v == mainUI then
+                        table.remove(GUI.ctx.children, i);
+                        break;
+                    end
+                end
+            end
+        end
+        mainUI = nil;
+    end
+end
+
+-- Updated toggle function that creates/destroys UI
+toggleJGUI = function()
+    if settings.showJGUI then
+        if not mainUI then
+            createMainUI();
+        end
+    else
+        destroyMainUI();
+    end
+end
+
+-- GUI setup
+ashita.events.register('load', 'jroller_gui_load', function()
+    -- Only create the GUI if it should be shown
+    if settings.showJGUI then
+        createMainUI();
+    end
 end)
 
 -- ImGui rendering
@@ -502,6 +550,9 @@ ashita.events.register('command', 'command_cb', function(e)
     if handled then
         e.blocked = true;
         sleepManager.wakeUp(); -- Wake up after any command
+        
+        -- Check if GUI visibility was toggled
+        toggleJGUI();
     end
 end)
 

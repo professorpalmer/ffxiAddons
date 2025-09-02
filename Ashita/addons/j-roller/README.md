@@ -119,6 +119,7 @@ Quick access to optimized roll setups:
 /roller burnsnakeeye on|off   # Liberal Snake Eye use on rolls 6+
 /roller once                  # Roll both rolls once then stop
 /roller menu                  # Toggle ImGui settings menu
+/roller gui/hidegui [on/off]  # Toggle main overlay visibility
 ```
 
 ### **🖥️ ImGui Settings Menu**

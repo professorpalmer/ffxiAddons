@@ -140,6 +140,8 @@ function ImGuiInterface:renderBasicControls()
          if imgui.IsItemHovered() then
              imgui.SetTooltip('Roll both rolls once then automatically stop.\nUseful for quick buffs without continuous rolling.');
          end
+         
+
     end
 end
 
@@ -515,6 +517,7 @@ function ImGuiInterface:renderHelp()
         imgui.Text('/roller roll1/roll2 <n> - Set roll');
         imgui.Text('/roller <preset> - Apply preset');
         imgui.Text('/roller menu - Toggle this menu');
+        imgui.Text('/roller gui/hidegui - Toggle main overlay');
         imgui.Text('/roller resetgui - Reset GUI position');
         imgui.Text('/roller help - Show all commands');
         
@@ -540,6 +543,7 @@ function ImGuiInterface:renderHelp()
             self.message('/roller once - Roll both rolls once then stop');
             self.message('/roller snakeeye/fold on/off - Merit ability settings');
             self.message('/roller menu - Toggle ImGui settings menu');
+            self.message('/roller gui/hidegui [on/off] - Toggle main overlay visibility');
             self.message('/roller resetgui - Reset GUI position to default');
             self.message('/roller debug - Show debug information');
         end

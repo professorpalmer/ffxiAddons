@@ -161,6 +161,7 @@ function CommandHandler:handleHelp()
     self.message('/roller resetpriority - Reset Random Deal priority to default');
     self.message('/roller snakeeye/fold on/off - Merit ability settings');
     self.message('/roller menu - Toggle ImGui settings menu');
+    self.message('/roller gui/hidegui [on/off] - Toggle main overlay visibility');
     self.message('/roller resetgui - Reset GUI position to default');
     self.message('/roller debug - Show debug information');
 end
@@ -374,6 +375,21 @@ function CommandHandler:processCommand(e)
         self.libSettings.save();
         self.message('GUI position reset to default (x=100, y=100).');
         self.message('Please reload the addon with "/addon reload j-roller" to apply changes.');
+        return true;
+        
+    elseif cmd == 'hidegui' or cmd == 'gui' then
+        local arg = args[1] and args[1]:lower();
+        if arg == 'on' or arg == 'show' or arg == 'force' then
+            self.settings.showJGUI = true;
+        elseif arg == 'off' or arg == 'hide' then
+            self.settings.showJGUI = false;
+        else
+            -- Toggle
+            self.settings.showJGUI = not self.settings.showJGUI;
+        end
+        self.message('J-GUI Overlay: ' .. (self.settings.showJGUI and 'Shown' or 'Hidden'));
+        self.libSettings.save();
+        -- Note: The toggle function will be called by main module
         return true;
         
     elseif cmd == 'help' then
