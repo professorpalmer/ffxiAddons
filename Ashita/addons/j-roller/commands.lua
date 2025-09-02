@@ -155,6 +155,7 @@ function CommandHandler:handleHelp()
      self.message('/roller townmode on/off - Prevent rolling in towns');
     self.message('/roller rollwithbust on/off - Allow Roll 2 when busted');
     self.message('/roller smartsnakeeye on/off - Smart end-rotation Snake Eye optimization');
+    self.message('/roller burnsnakeeye on/off - Liberal Snake Eye use on rolls 6+');
 
     self.message('/roller once - Roll both rolls once then stop');
     self.message('/roller resetpriority - Reset Random Deal priority to default');
@@ -329,6 +330,11 @@ function CommandHandler:processCommand(e)
        elseif cmd == 'smartsnakeeye' then
            local arg = args[1] and args[1]:lower();
            self:handleSettingToggle('smartsnakeeye', arg, 'Smart Snake Eye: On (Optimize end-rotation)', 'Smart Snake Eye: Off');
+           return true;
+           
+       elseif cmd == 'burnsnakeeye' then
+           local arg = args[1] and args[1]:lower();
+           self:handleSettingToggle('burnsnakeeye', arg, 'Burn Snake Eye: On (Liberal use on rolls 6+)', 'Burn Snake Eye: Off');
            return true;
            
        elseif cmd == 'resetpriority' then

@@ -615,6 +615,48 @@ function RollingStrategy:executeSnakeEye(waiting)
 				end
 			end
 		end
+
+		-- PRIORITY 4: Burn Snake Eye mode - use Snake Eye liberally on ending rolls 6+
+		if self.settings.burnsnakeeye then
+			-- Check if we're unlikely to double-up further (ending the roll)
+			local wouldDoubleUp = self:shouldDoubleUp()
+			
+			if not wouldDoubleUp and self.rollNum >= 6 and self.rollNum < 10 then
+				-- Calculate if Snake Eye will be wasted (won't recharge before next rotation)
+				local currentTime = os.time()
+				local buffTimeRemaining = math.min(
+					(self.roll1RollTime + 300) - currentTime, -- Roll 1 expires in ~5 min
+					(self.roll2RollTime + 300) - currentTime -- Roll 2 expires in ~5 min
+				)
+				
+				-- Snake Eye recharges in 300 seconds (5 minutes), check if it would be wasted
+				-- If we have less than 6 minutes left on buffs, Snake Eye will likely be wasted
+				local snakeEyeWouldBeWasted = buffTimeRemaining < 360 -- 6 minutes
+				
+				-- Also burn Snake Eye if we're on Roll 1 and it would help
+				local onRoll1 = not workingOnRoll2
+				
+				-- Check both potential outcomes of Snake Eye:
+				-- 1. The +1 outcome (60% chance) shouldn't hit unlucky
+				-- 2. The merit outcome (40% chance) gets you to 11 (always good)
+				local wouldHitUnluckyWith1 = (self.rollNum + 1) == unluckyNum
+				
+				if (snakeEyeWouldBeWasted or onRoll1) and not wouldHitUnluckyWith1 then
+					-- Merited Snake Eye has 40% chance to roll 1-5 to get 11 when on rolls 6-10
+					-- 60% chance gives +1, so we verify that +1 won't hit unlucky
+					local rollType = workingOnRoll2 and "Roll 2" or "Roll 1"
+					self.message(
+						"Burn Snake Eye (" .. rollType .. "): " 
+							.. self.rollNum 
+							.. " (40% chance for 11, 60% chance for " .. (self.rollNum + 1) .. ", would be wasted otherwise)"
+					)
+					self.rollQ:push(self.rollsByName["Snake Eye"])
+					local doubleUpAction = self:createDoubleUpAction()
+					self.rollQ:push(doubleUpAction)
+					return true
+				end
+			end
+		end
 	end
 
 	return false

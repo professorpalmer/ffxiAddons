@@ -50,6 +50,7 @@ local defaultSettings = T {
     townmode = false,      -- Only roll when not in town/safe zones
     rollwithbust = true,   -- Allow Roll 2 even when busted (party still benefits)
     smartsnakeeye = true,  -- Use Snake Eye for end-of-rotation optimization when it will recharge in time
+    burnsnakeeye = true,   -- Use Snake Eye liberally on rolls 6+ when ending (merited Snake Eye has 40% chance for 11)
     hasSnakeEye = true,    -- true = enabled, false = disabled
     hasFold = true,        -- true = enabled, false = disabled
     -- ImGui window settings

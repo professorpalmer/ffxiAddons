@@ -80,6 +80,7 @@ Quick access to optimized roll setups:
 - **`safemode`**: Ultra-conservative mode - only double-up on rolls 1-5 like sub COR (default: off)
 - **`engaged`**: Only roll while engaged in combat (default: off)
 - **`townmode`**: Prevent rolling in towns and safe zones (default: off)
+- **`burnsnakeeye`**: Use Snake Eye liberally on rolls 6+ when ending (merited Snake Eye has 40% chance for 11) (default: on)
 - **`hasSnakeEye/hasFold`**: Manual merit ability control (default: on)
 
 ## 📋 **Commands**
@@ -115,6 +116,7 @@ Quick access to optimized roll setups:
 /roller bustimmunity on|off   # Exploit bust immunity
 /roller safemode on|off       # Ultra-conservative mode
 /roller townmode on|off       # Prevent rolling in towns
+/roller burnsnakeeye on|off   # Liberal Snake Eye use on rolls 6+
 /roller once                  # Roll both rolls once then stop
 /roller menu                  # Toggle ImGui settings menu
 ```

@@ -414,6 +414,18 @@ function ImGuiInterface:renderAdvancedSettings()
          if imgui.IsItemHovered() then
              imgui.SetTooltip('Use Snake Eye to optimize final rolls when it will recharge before next rotation.\nExample: Push a 9 to 10 if Snake Eye will be ready again in time.');
          end
+         
+         -- Burn Snake Eye setting
+         local burnsnakeeyeValue = { self.settings.burnsnakeeye };
+         if imgui.Checkbox('Burn Snake Eye (Merited)', burnsnakeeyeValue) then
+             self.settings.burnsnakeeye = burnsnakeeyeValue[1];
+             self.libSettings.save();
+         end
+         imgui.SameLine();
+         imgui.TextColored({ 0.7, 0.7, 0.7, 1.0 }, '(?)');
+         if imgui.IsItemHovered() then
+             imgui.SetTooltip('Use Snake Eye liberally on rolls 6+ when ending the roll.\nMerited Snake Eye has 40% chance to roll 1-5 for an 11.\nPrevents wasting Snake Eye cooldown between rotations.');
+         end
 
     end
 end
@@ -522,6 +534,7 @@ function ImGuiInterface:renderHelp()
              self.message('/roller townmode on/off - Prevent rolling in towns');
             self.message('/roller rollwithbust on/off - Allow Roll 2 when busted');
             self.message('/roller smartsnakeeye on/off - Smart Snake Eye optimization');
+            self.message('/roller burnsnakeeye on/off - Liberal Snake Eye use on rolls 6+');
             self.message('/roller resetpriority - Reset Random Deal priority to default');
     
             self.message('/roller once - Roll both rolls once then stop');
