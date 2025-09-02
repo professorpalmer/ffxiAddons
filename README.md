@@ -1,5 +1,3 @@
-**Home of J-Roller Enhanced and Send'Oria!**
-
 This is some stuff I've cobbled together as I've been requested / developed a need for it.
 
 A handful of these addons (AutoCor, J-roller, Checker, etc) are already existing addons that I've made modifications to for personal use/fixes/improvements. 
