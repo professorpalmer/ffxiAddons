@@ -234,6 +234,14 @@ Settings are stored in `data/settings.xml` and include:
 - Send yourself a tell and check console output
 - Look for "Chat mode 3" messages
 
+### "Unity messages show as hex strings" (FIXED in v1.6)
+
+- **Issue**: Domain Invasion announcements showed as `: 0a,01f1,0000000a,0000002f,00000120,00000000,00000000,`
+- **Solution**: Automatic Unity message parsing now handles encoded system messages
+- **Test**: Use `//tn testunity` to verify Unity message parsing works
+- **Enable Unity monitoring**: `//tn unity on` to receive Domain Invasion notifications
+- **Debug**: Enable `//tn debug` to see Unity message parsing in action
+
 ### "Ping test failed"
 
 - Check your webhook URL is correct
@@ -317,6 +325,12 @@ If you encounter issues:
 
 ## Version History
 
+- **v1.6 (Unity Message Fix)**: Fixed Unity message parsing for Domain Invasion announcements
+  - **Unity message parsing**: Fixed issue where NPC Domain Invasion announcements showed as hex strings
+  - **System message detection**: Automatically detects and parses encoded Unity system messages
+  - **Domain Invasion support**: Properly handles Domain Invasion location announcements
+  - **Test command**: Added `//tn testunity` to test Unity message parsing
+  - **Debug improvements**: Enhanced debug output for Unity message troubleshooting
 - **v1.5 (Multi-Character Enhanced)**: Enhanced multi-character support and reliability
   - **Multi-character identification**: All Discord messages show `[CharacterName]` prefix
   - **Coroutine protection**: Fixed HTTPS issues by moving character detection to main thread

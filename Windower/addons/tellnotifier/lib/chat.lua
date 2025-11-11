@@ -83,4 +83,84 @@ function Chat.parse_outgoing_tell_packet(data)
     return target, message
 end
 
+function Chat.is_unity_system_message(message, sender)
+    -- Unity system messages from NPCs have specific characteristics:
+    -- 1. Often have empty or system-generated sender names
+    -- 2. Contain hex-like patterns (comma-separated hex values)
+    -- 3. Start with specific patterns for Domain Invasion announcements
+    
+    if not message or not sender then
+        return false
+    end
+    
+    -- Check for hex pattern typical of encoded Unity messages
+    local hex_pattern = message:match("^[%s]*:?[%s]*[0-9a-fA-F,]+[%s]*$")
+    if hex_pattern then
+        return true
+    end
+    
+    -- Check for other system message patterns
+    local system_patterns = {
+        "^%s*:%s*[0-9a-fA-F]+,",  -- Starts with colon and hex
+        "^[0-9a-fA-F]+,[0-9a-fA-F]+,", -- Starts with hex values
+    }
+    
+    for _, pattern in ipairs(system_patterns) do
+        if message:match(pattern) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+function Chat.parse_unity_system_message(message)
+    -- Parse Unity system messages that come in encoded format
+    -- These are typically Domain Invasion announcements and other system messages
+    
+    if not message then
+        return nil
+    end
+    
+    -- Remove leading colon and whitespace
+    local cleaned = message:gsub("^%s*:?%s*", "")
+    
+    -- Check if this looks like a hex-encoded message
+    if not cleaned:match("^[0-9a-fA-F,]+") then
+        return message -- Return original if not hex-encoded
+    end
+    
+    -- Split by commas to get hex values
+    local hex_values = {}
+    for hex in cleaned:gmatch("([0-9a-fA-F]+)") do
+        if #hex > 0 then
+            table.insert(hex_values, hex)
+        end
+    end
+    
+    -- If we have hex values, try to decode them
+    if #hex_values > 0 then
+        -- For Domain Invasion messages, we can provide a generic message
+        -- since the exact parsing would require Unity-specific data
+        local first_hex = hex_values[1]
+        
+        -- Common Domain Invasion message identifiers
+        local domain_invasion_ids = {
+            ["0a"] = true,
+            ["0A"] = true,
+        }
+        
+        if domain_invasion_ids[first_hex] then
+            return "Domain Invasion notification (location data encoded)"
+        end
+        
+        -- For other system messages, provide a generic description
+        return string.format("Unity system message (encoded: %s...)", 
+                           table.concat(hex_values, ","):sub(1, 20))
+    end
+    
+    -- If we can't decode, return a cleaned version
+    return "Unity system message (encoded data)"
+end
+
 return Chat

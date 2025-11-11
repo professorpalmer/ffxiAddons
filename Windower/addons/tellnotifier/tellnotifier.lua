@@ -1,12 +1,12 @@
 --[[
 * TellNotifier - Discord Chat Notifications for Windower
 * Author: Palmer (Zodiarchy @ Asura)
-* Version: 1.4 - Refactored
+* Version: 1.6 - Unity Message Fix
 --]]
 
 _addon.name     = 'TellNotifier'
 _addon.author   = 'Palmer (Zodiarchy @ Asura)'
-_addon.version  = '1.4'
+_addon.version  = '1.6'
 _addon.desc     = 'Sends Discord notifications when you receive chat messages.'
 _addon.commands = { 'tellnotifier', 'tn' }
 
@@ -71,6 +71,16 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
 
     -- Convert auto-translate and send notification
     local clean_message = windower.convert_auto_trans(message) or message
+    
+    -- Special handling for Unity messages
+    if chat_info.name == 'Unity' and Chat.is_unity_system_message(clean_message, sender) then
+        -- Parse Unity system message (like Domain Invasion announcements)
+        clean_message = Chat.parse_unity_system_message(clean_message)
+        if settings.debug_mode then
+            windower.add_to_chat(123, string.format('TellNotifier DEBUG: Unity system message parsed: %s', clean_message))
+        end
+    end
+    
     -- Send notification asynchronously to prevent any potential freezing
     coroutine.schedule(function()
         send_notification(sender, clean_message, chat_info.name)
@@ -135,7 +145,7 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         end
 
         -- Check cooldown and send
-        if Chat.check_cooldown(chat_type, settings.cooldown, settings.enable_batching) then
+        if Chat.check_cooldown(chat_type, settings) then
             local final_message = windower.convert_auto_trans(message) or message
             -- Send notification asynchronously to prevent game freeze
             coroutine.schedule(function()
@@ -151,7 +161,7 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
         end
 
         -- Check cooldown and send
-        if Chat.check_cooldown('Tell', settings.cooldown, settings.enable_batching) then
+        if Chat.check_cooldown('Tell', settings) then
             local final_message = windower.convert_auto_trans(message) or message
             -- Send notification asynchronously to prevent game freeze
             coroutine.schedule(function()
@@ -188,6 +198,19 @@ windower.register_event('addon command', function(command, ...)
             send_notification('TestUser', 'This is a test notification from TellNotifier addon.', 'Test')
         end, 0.1)
         windower.add_to_chat(123, 'TellNotifier: Test notification sent to Discord.')
+    elseif command == 'testunity' then
+        -- Test Unity message parsing with sample encoded message
+        local sample_encoded = ': 0a,01f1,0000000a,0000002f,00000120,00000000,00000000,'
+        local parsed_message = Chat.parse_unity_system_message(sample_encoded)
+        windower.add_to_chat(123, 'TellNotifier: Unity Message Test:')
+        windower.add_to_chat(123, string.format('  Original: %s', sample_encoded))
+        windower.add_to_chat(123, string.format('  Parsed: %s', parsed_message))
+        
+        -- Send test Unity notification
+        coroutine.schedule(function()
+            send_notification('Unity System', parsed_message, 'Unity')
+        end, 0.1)
+        windower.add_to_chat(123, 'TellNotifier: Unity test notification sent to Discord.')
     elseif command == 'toggle' then
         settings.enabled = not settings.enabled
         Config.save(settings)
