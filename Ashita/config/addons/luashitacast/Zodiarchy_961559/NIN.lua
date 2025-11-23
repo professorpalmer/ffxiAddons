@@ -17,16 +17,24 @@ local settings = {
     RegenMode = false,        -- Manual regen/idle gear mode - toggleable with /regen
     MovementMode = false,     -- Movement speed mode
     THMode = false,           -- Treasure Hunter mode
-    NinjutsuMode = 'Default', -- Default, Acc, Nuke
+    NinjutsuMode = 'Nuke',    -- Default, Acc, Nuke
     ShadowMode = false,       -- Special shadow casting mode
     EnmityMode = false,       -- Enmity generation mode
 }
 
 -- Define back slot gear
-local ninCape = "Null Shawl";
-local wsCape = "Null Shawl";
-local fcCape = "Null Shawl";
+local ninCape = 'Null Shawl';
+local wsCape = 'Null Shawl';
+local fcCape = 'Null Shawl';
 local AgiDAcape = { Name = 'Andartia\'s Mantle', Augment = { [1] = 'AGI+20', [2] = '"Dbl.Atk."+10' } };
+local magicBack = { Name = 'Andartia\'s Mantle', Augment = { [1] = 'INT+20', [2] = '"Mag. Atk. Bns."+10', [3] = 'Mag. Acc.+20', [4] = 'Magic Damage+20', [5] = 'Magic Damage +10' } };
+
+-- Function to check if it's currently Dusk to Dawn time (17:00-07:00 Vana'diel time)
+local function IsDuskToDawn()
+    local time = gData.GetTimestamp();
+    -- Dusk to Dawn is 17:00 to 07:00 (17-23, 0-6)
+    return (time.hour >= 17 or time.hour < 7);
+end
 
 local sets = {
 
@@ -37,39 +45,39 @@ local sets = {
 
     -- Idle set (when not engaged)
     Idle = Equip.NewSet {
-        Ammo = "Date Shuriken",
+        Ammo = 'Date Shuriken',
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
         Body = 'Hiza. Haramaki +2',
         Hands = { Name = 'Rao Kote +1', AugPath = 'C' },
         Legs = { Name = 'Rao Haidate +1', AugPath = 'C' },
         Feet = { Name = 'Rao Sune-Ate +1', AugPath = 'C' },
-        Neck = "Ninja Nodowa +2",
+        Neck = 'Ninja Nodowa +2',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
-        Ear2 = "Hattori Earring +1",
-        Ring1 = "Gere Ring",
-        Ring2 = "Epona\'s Ring",
+        Ear1 = 'Dedition Earring',
+        Ear2 = 'Hattori Earring +1',
+        Ring1 = 'Gere Ring',
+        Ring2 = 'Epona\'s Ring',
         Back = ninCape,
     },
 
-    
+
 
 
     -- Movement speed set
     Movement = Equip.NewSet {
-        Feet = "Herald's Gaiters",
+        Feet = 'Herald\'s Gaiters',
     },
 
     -- Standard TP sets
     Engaged = Equip.NewSet {
         Ammo = 'Date Shuriken',
-        Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
+        Head = 'Malignance Chapeau',
         Body = 'Mpaca\'s Doublet',
-        Hands = "Adhemar Wrist. +1",
+        Hands = 'Adhemar Wrist. +1',
         Legs = { Name = 'Ryuo Hakama +1', AugPath = 'D' },
-        Feet = 'Mpaca\'s Boots',
+        Feet = 'Tatena. Sune. +1',
         Neck = 'Ninja Nodowa +2',
-        Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
+        Waist = 'Windbuffet Belt +1',
         Ear1 = 'Dedition Earring',
         Ear2 = { Name = 'Hattori Earring +1', Augment = { [1] = 'Accuracy+12', [2] = '"Store TP"+4', [3] = 'Mag. Acc.+12' } },
         Ring1 = 'Gere Ring',
@@ -81,50 +89,50 @@ local sets = {
     EngagedAcc = Equip.NewSet {
         Ammo = 'Date Shuriken',
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
-        Body = "Malignance Tabard",
-        Hands = "Adhemar Wrist. +1",
-        Legs = "Mpaca\'s Hose",
-        Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+19', [2] = 'CHR+3', [3] = 'Attack+11', [4] = '"Triple Atk."+4' } },
-        Neck = "Ninja Nodowa +2",
+        Body = 'Malignance Tabard',
+        Hands = 'Adhemar Wrist. +1',
+        Legs = 'Mpaca\'s Hose',
+        Feet = 'Tatena. Sune. +1',
+        Neck = 'Ninja Nodowa +2',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
+        Ear1 = 'Dedition Earring',
         Ear2 = { Name = 'Hattori Earring +1', Augment = { [1] = 'Accuracy+12', [2] = '"Store TP"+4', [3] = 'Mag. Acc.+12' } },
-        Ring1 = "Gere Ring",
-        Ring2 = "Chirich Ring +1",
+        Ring1 = 'Gere Ring',
+        Ring2 = 'Chirich Ring +1',
         Back = ninCape,
     },
 
     -- Hybrid DT/DPS set
     EngagedHybrid = Equip.NewSet {
         Ammo = 'Date Shuriken',
-        Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
-        Body = "Malignance Tabard",
-        Hands = "Adhemar Wrist. +1",
-        Legs = "Mpaca\'s Hose",
-        Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+19', [2] = 'CHR+3', [3] = 'Attack+11', [4] = '"Triple Atk."+4' } },
-        Neck = "Ninja Nodowa +2",
-        Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
+        Head = 'Malignance Chapeau',
+        Body = 'Malignance Tabard',
+        Hands = 'Malignance Gloves',
+        Legs = 'Malignance Tights',
+        Feet = 'Malignance Boots',
+        Neck = 'Ninja Nodowa +2',
+        Waist = 'Windbuffet Belt +1',
+        Ear1 = 'Dedition Earring',
         Ear2 = { Name = 'Hattori Earring +1', Augment = { [1] = 'Accuracy+12', [2] = '"Store TP"+4', [3] = 'Mag. Acc.+12' } },
-        Ring1 = "Gere Ring",
-        Ring2 = "Epona\'s Ring",
+        Ring1 = 'Gere Ring',
+        Ring2 = 'Epona\'s Ring',
         Back = ninCape,
     },
 
     -- Full DT set
     DT = Equip.NewSet {
-        Ammo = "Date Shuriken",
-        Head = "Nyame Helm",
-        Body = "Nyame Mail",
-        Hands = "Nyame Gauntlets",
-        Legs = "Nyame Flanchard",
-        Feet = "Nyame Sollerets",
-        Neck = "Ninja Nodowa +2",
+        Ammo = 'Date Shuriken',
+        Head = 'Nyame Helm',
+        Body = 'Nyame Mail',
+        Hands = 'Nyame Gauntlets',
+        Legs = 'Nyame Flanchard',
+        Feet = 'Nyame Sollerets',
+        Neck = 'Loricate Torque +1',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
-        Ear2 = "Hattori Earring +1",
-        Ring1 = "Gelatinous Ring +1",
-        Ring2 = "Epona\'s Ring",
+        Ear1 = 'Dedition Earring',
+        Ear2 = 'Hattori Earring +1',
+        Ring1 = 'Gelatinous Ring +1',
+        Ring2 = 'Epona\'s Ring',
         Back = ninCape,
     },
 
@@ -133,15 +141,15 @@ local sets = {
         Ammo = 'Date Shuriken',
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
         Body = 'Hiza. Haramaki +2',
-        Hands = "Adhemar Wrist. +1",
+        Hands = 'Adhemar Wrist. +1',
         Legs = { Name = 'Ryuo Hakama +1', AugPath = 'D' },
         Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+19', [2] = 'CHR+3', [3] = 'Attack+11', [4] = '"Triple Atk."+4' } },
-        Neck = "Ninja Nodowa +2",
+        Neck = 'Ninja Nodowa +2',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
+        Ear1 = 'Dedition Earring',
         Ear2 = { Name = 'Hattori Earring +1', Augment = { [1] = 'Accuracy+12', [2] = '"Store TP"+4', [3] = 'Mag. Acc.+12' } },
-        Ring1 = "Gere Ring",
-        Ring2 = "Epona\'s Ring",
+        Ring1 = 'Gere Ring',
+        Ring2 = 'Epona\'s Ring',
         Back = ninCape,
     },
 
@@ -149,155 +157,138 @@ local sets = {
     WeaponSkill = {
         -- Blade: Hi - AGI-based, crit damage varies by TP
         ['Blade: Hi'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Mpaca\'s Doublet",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mpaca\'s Hose",
-            Feet = "Mpaca\'s Boots",
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
-            Back = AgiDAcape,
-        },
-
-        -- Blade: Metsu - DEX-based, high damage
-        ['Blade: Metsu'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mochi. Hakama +3",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Mpaca\'s Doublet',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mpaca\'s Hose',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
+            Waist = 'Fotia Belt',
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Blade: Shun - DEX-based, multi-hit
         ['Blade: Shun'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mpaca\'s Hose",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Malignance Tabard',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mpaca\'s Hose',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
+            Waist = 'Fotia Belt',
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Blade: Chi - STR-based, magical damage
         ['Blade: Chi'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mochi. Hakama +3",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Malignance Tabard',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mochi. Hakama +3',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
+            Waist = 'Fotia Belt',
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Blade: Teki - STR-based, magical damage
         ['Blade: Teki'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mochi. Hakama +3",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Malignance Tabard',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mochi. Hakama +3',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
+            Waist = 'Fotia Belt',
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Blade: To - STR-based, magical damage
         ['Blade: To'] = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mochi. Hakama +3",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
-            Waist = "Fotia Belt",
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Malignance Tabard',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mochi. Hakama +3',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
+            Waist = 'Fotia Belt',
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Default fallback for other weapon skills
         Default = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
-            Body = "Malignance Tabard",
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mochi. Hakama +3",
-            Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+30', [2] = 'Weapon skill damage +8%', [3] = 'Attack+6', [4] = 'Mag. Acc.+2' } },
-            Neck = "Ninja Nodowa +2",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
+            Body = 'Malignance Tabard',
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mochi. Hakama +3',
+            Feet = 'Hattori Kyahan +2',
+            Neck = 'Ninja Nodowa +2',
             Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = AgiDAcape,
         },
 
         -- Proc set for low damage weapon skills
         Proc = Equip.NewSet {
-            Ammo = "Date Shuriken",
-            Head = "Mpaca\'s Cap",
+            Ammo = 'Date Shuriken',
+            Head = 'Mpaca\'s Cap',
             Body = 'Hiza. Haramaki +2',
-            Hands = "Adhemar Wrist. +1",
-            Legs = "Mpaca\'s Hose",
-            Feet = "Herculean Boots",
-            Neck = "Ninja Nodowa +2",
+            Hands = 'Adhemar Wrist. +1',
+            Legs = 'Mpaca\'s Hose',
+            Feet = 'Herculean Boots',
+            Neck = 'Ninja Nodowa +2',
             Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-            Ear1 = "Mache Earring +1",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Rajas Ring",
+            Ear1 = 'Mache Earring +1',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Rajas Ring',
             Back = ninCape,
         },
     },
 
     -- Fast Cast for ninjutsu
     Precast = Equip.NewSet {
-        Ammo = "Ghastly Tathlum +1",
+        Ammo = 'Ghastly Tathlum +1',
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
-        Body = "Dread Jupon",
-        Hands = "Mochikuzi Tekko +3",
-        Legs = "Mpaca\'s Hose",
-        Feet = "Herculean Boots",
-        Neck = "Ninja Nodowa +2",
+        Body = 'Dread Jupon',
+        Hands = 'Mochikuzi Tekko +3',
+        Legs = 'Mpaca\'s Hose',
+        Feet = 'Herculean Boots',
+        Neck = 'Ninja Nodowa +2',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
-        Ear2 = "Hattori Earring +1",
-        Ring1 = "Prolix Ring",
-        Ring2 = "Epona\'s Ring",
+        Ear1 = 'Dedition Earring',
+        Ear2 = 'Hattori Earring +1',
+        Ring1 = 'Prolix Ring',
+        Ring2 = 'Epona\'s Ring',
         Back = AgiDAcape,
     },
 
@@ -305,63 +296,63 @@ local sets = {
     Ninjutsu = {
         -- Utsusemi (shadow magic)
         Utsusemi = Equip.NewSet {
-            Ammo = "Ghastly Tathlum +1",
+            Ammo = 'Ghastly Tathlum +1',
             Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
-            Body = "Passion Jacket",
-            Hands = "Mochikuzi Tekko +3",
-            Legs = "Arjuna Breeches",
-            Feet = "Hattori Kyahan +1",
-            Neck = "Ninja Nodowa +2",
+            Body = 'Mochi. Chainmail +3',
+            Hands = 'Mochikuzi Tekko +3',
+            Legs = 'Arjuna Breeches',
+            Feet = 'Hattori Kyahan +1',
+            Neck = 'Ninja Nodowa +2',
             Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-            Ear1 = "Dedition Earring",
-            Ear2 = "Hattori Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Epona\'s Ring",
+            Ear1 = 'Dedition Earring',
+            Ear2 = 'Hattori Earring +1',
+            Ring1 = 'Gere Ring',
+            Ring2 = 'Epona\'s Ring',
             Back = AgiDAcape,
         },
 
         -- Elemental ninjutsu (nuking)
         Nuke = Equip.NewSet {
-            Ammo = "Ghastly Tathlum +1",
-            Head = "Mochi. Hatsuburi +3", -- MB damage bonus
-            Body = "Nyame Mail",          -- MAB + MB damage
-            Hands = "Hattori Tekko +1",    -- MAB + MB damage  
-            Legs = "Nyame Flanchard",     -- MAB + MB damage
-            Feet = "Nyame Sollerets",     -- MAB + MB damage
-            Neck = "Atzintli Necklace",
-            Waist = "Eschan Stone",       -- MAB
-            Ear1 = "Hecate\'s Earring",   -- MAB
-            Ear2 = "Fromioso Earring",    -- MAB
-            Ring1 = "Metamor. Ring +1",   -- MAB
-            Ring2 = "Mujin Band",         -- MB damage
-            Back = ninCape,
+            Ammo = 'Ghastly Tathlum +1',
+            Head = 'Mochi. Hatsuburi +3', -- MB damage bonus
+            Body = 'Nyame Mail',          -- MAB + MB damage
+            Hands = 'Hattori Tekko +2',   -- MAB + MB damage
+            Legs = 'Nyame Flanchard',     -- MAB + MB damage
+            Feet = 'Mochi. Kyahan +3',    -- MAB + MB damage
+            Neck = 'Atzintli Necklace',
+            Waist = 'Eschan Stone',       -- MAB
+            Ear1 = 'Hecate\'s Earring',   -- MAB
+            Ear2 = 'Friomisi Earring',    -- MAB
+            Ring1 = 'Metamor. Ring +1',   -- MAB
+            Ring2 = 'Mujin Band',         -- MB damage
+            Back = magicBack,
         },
 
         -- Magic accuracy focused
         MagicAcc = Equip.NewSet {
-            Ammo = "Ghastly Tathlum +1",
-            Head = "Hachi. Hatsu. +3",
-            Body = "Nyame Mail",
-            Hands = "Nyame Gauntlets",
-            Legs = "Nyame Flanchard",
-            Feet = "Nyame Sollerets",
-            Neck = "Atzintli Necklace",
-            Waist = "Eschan Stone",
-            Ear1 = "Fromioso Earring",
-            Ear2 = "Digni. Earring",
-            Ring1 = "Metamor. Ring +1",
-            Ring2 = "Mujin Band",
-            Back = ninCape,
+            Ammo = 'Ghastly Tathlum +1',
+            Head = 'Hachi. Hatsu. +3',
+            Body = 'Nyame Mail',
+            Hands = 'Nyame Gauntlets',
+            Legs = 'Nyame Flanchard',
+            Feet = 'Nyame Sollerets',
+            Neck = 'Atzintli Necklace',
+            Waist = 'Eschan Stone',
+            Ear1 = 'Friomisi Earring',
+            Ear2 = 'Digni. Earring',
+            Ring1 = 'Metamor. Ring +1',
+            Ring2 = 'Mujin Band',
+            Back = magicBack,
         },
     },
 
     -- Job Abilities and special modes
     Yonin = Equip.NewSet {
-        --Legs = "Hattori Hakama +1", -- Enhances Yonin effect
+        --Legs = 'Hattori Hakama +1', -- Enhances Yonin effect
     },
 
     Innin = Equip.NewSet {
-        --Head = "Hattori Zukin +1", -- Best available for Innin
+        --Head = 'Hattori Zukin +1', -- Best available for Innin
     },
 
     Migawari = Equip.NewSet {
@@ -369,30 +360,35 @@ local sets = {
     },
 
     Futae = Equip.NewSet {
-        Hands = "Hattori Tekko +1", -- Enhances Futae effect
+        Hands = 'Hattori Tekko +2', -- Enhances Futae effect
     },
 
     -- Enmity generation set
     Enmity = Equip.NewSet {
-        Ammo = "Date Shuriken",
+        Ammo = 'Date Shuriken',
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
         Body = 'Hiza. Haramaki +2',
-        Hands = "Adhemar Wrist. +1",
-        Legs = "Mpaca\'s Hose",
-        Feet = "Herculean Boots",
-        Neck = "Ninja Nodowa +2",
+        Hands = 'Adhemar Wrist. +1',
+        Legs = 'Mpaca\'s Hose',
+        Feet = 'Herculean Boots',
+        Neck = 'Ninja Nodowa +2',
         Waist = { Name = 'Sailfi Belt +1', AugPath = 'A' },
-        Ear1 = "Dedition Earring",
-        Ear2 = "Hattori Earring +1",
-        Ring1 = "Gere Ring",
-        Ring2 = "Epona\'s Ring",
+        Ear1 = 'Dedition Earring',
+        Ear2 = 'Hattori Earring +1',
+        Ring1 = 'Gere Ring',
+        Ring2 = 'Epona\'s Ring',
         Back = ninCape,
     },
 
     -- Treasure Hunter set
     TH = Equip.NewSet {
-        Waist = "Chaac Belt",
+        Waist = 'Chaac Belt',
         Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+19', [2] = 'CHR+3', [3] = 'Attack+11', [4] = '"Treasure Hunter"+2' } },
+    },
+
+    -- Dusk to Dawn set (17:00-07:00 in-game time) - applies when not engaged
+    DuskToDawn = Equip.NewSet {
+        Feet = 'Hachi. Kyahan +1',
     },
 
     -- Naegling weapon set (activated with /nag command)
@@ -403,11 +399,11 @@ local sets = {
 
     -- Teleportation rings
     WarpRing = Equip.NewSet {
-        Ring1 = "Warp Ring",
+        Ring1 = 'Warp Ring',
     },
 
     DimRing = Equip.NewSet {
-        Ring1 = "Dim. Ring (Holla)",
+        Ring1 = 'Dim. Ring (Holla)',
     },
 
 }
@@ -477,7 +473,7 @@ profile.HandleCommand = function(args)
         if (args[2] ~= nil) then
             local mode = string.lower(args[2]);
             if (mode == 'default' or mode == 'acc' or mode == 'hybrid' or mode == 'proc') then
-                settings.MeleeMode = mode:gsub("^%l", string.upper);
+                settings.MeleeMode = mode:gsub('^%l', string.upper);
                 -- Clear conflicting modes
                 if settings.MeleeMode ~= 'Default' then
                     settings.DTMode = false;
@@ -524,7 +520,7 @@ profile.HandleCommand = function(args)
         if (args[2] ~= nil) then
             local mode = string.lower(args[2]);
             if (mode == 'default' or mode == 'nuke' or mode == 'macc') then
-                settings.NinjutsuMode = mode:gsub("^%l", string.upper);
+                settings.NinjutsuMode = mode:gsub('^%l', string.upper);
                 print('Ninjutsu mode set to: ' .. settings.NinjutsuMode);
             else
                 print('Invalid mode. Use: default, nuke, or macc');
@@ -554,7 +550,7 @@ profile.HandleCommand = function(args)
         -- Equip warp ring and use it after 10 seconds
         settings.TeleportActive = true;
         print('Warp Ring equipped - Using in 10 seconds...');
-        gFunc.ForceEquip(14, "Warp Ring"); -- Slot 14 is Ring1
+        gFunc.ForceEquip(14, 'Warp Ring'); -- Slot 14 is Ring1
         -- Queue the item use command after 10 seconds
         ashita.tasks.once(10, function()
             print('Using Warp Ring...');
@@ -570,7 +566,7 @@ profile.HandleCommand = function(args)
         -- Equip dimensional ring and use it after 10 seconds
         settings.TeleportActive = true;
         print('Dimensional Ring equipped - Using in 10 seconds...');
-        gFunc.ForceEquip(14, "Dim. Ring (Holla)"); -- Slot 14 is Ring1
+        gFunc.ForceEquip(14, 'Dim. Ring (Holla)'); -- Slot 14 is Ring1
         -- Queue the item use command after 10 seconds
         ashita.tasks.once(10, function()
             print('Using Dimensional Ring...');
@@ -620,11 +616,11 @@ profile.HandleCommand = function(args)
                 if item and item.Id > 0 then
                     local itemName = resx:GetItemById(item.Id).Name[1];
 
-                    if string.find(string.lower(itemName), "vile elixir") then
+                    if string.find(string.lower(itemName), 'vile elixir') then
                         print('Found potential Vile Elixir item: "' .. itemName .. '" (ID: ' .. item.Id .. ')');
                     end
 
-                    if itemName == "Vile Elixir +1" or itemName == "Vile Elixir+1" or string.find(string.lower(itemName), "vile elixir%+1") then
+                    if itemName == 'Vile Elixir +1' or itemName == 'Vile Elixir+1' or string.find(string.lower(itemName), 'vile elixir%+1') then
                         print('Using Vile Elixir +1');
                         AshitaCore:GetChatManager():QueueCommand(1, '/item "' .. itemName .. '" <me>');
                         return;
@@ -640,7 +636,7 @@ profile.HandleCommand = function(args)
                 if item and item.Id > 0 then
                     local itemName = resx:GetItemById(item.Id).Name[1];
 
-                    if itemName == "Vile Elixir" and not string.find(string.lower(itemName), "%+1") then
+                    if itemName == 'Vile Elixir' and not string.find(string.lower(itemName), '%+1') then
                         print('Using Vile Elixir');
                         AshitaCore:GetChatManager():QueueCommand(1, '/item "' .. itemName .. '" <me>');
                         return;
@@ -716,6 +712,11 @@ profile.HandleDefault = function()
 
         if (Status.HasStatus('Migawari') and sets.Migawari) then
             Equip.Set(sets.Migawari);
+        end
+
+        -- Apply Dusk to Dawn gear when not engaged
+        if (player.Status ~= 'Engaged' and IsDuskToDawn()) then
+            Equip.Set(sets.DuskToDawn);
         end
 
         -- Apply TH gear if mode is active

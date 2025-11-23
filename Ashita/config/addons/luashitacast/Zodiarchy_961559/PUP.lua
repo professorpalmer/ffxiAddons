@@ -10,9 +10,10 @@ local profile = {}
 local settings = {
     PetMode = 'Tank',       -- Tank, Melee, Range, Magic
     IsTrusted = false,      -- For pet trusts
-    Weapon = 'Xiucoatl',    -- Primary weapon: Xiucoatl (can switch to Karambit or Godhands)
+    Weapon = 'Xiucoatl',    -- Primary weapon: Xiucoatl (can switch to Karambit, Godhands, or Kenkonken)
     PupOnly = false,        -- For fights where only automaton is used (Lobo, etc) - toggleable with /puponly
     TurtleMode = false,     -- For pet -DT tank mode - toggleable with /turtle
+    PetHybridMode = false,  -- For pet hybrid DT/DPS mode - toggleable with /pethybrid
     MasterMode = false,     -- For pure master DPS when pet is mage/not used - toggleable with /master
     MasterSTPMode = false,  -- For master Store TP mode when pet is mage/not used - toggleable with /masterstp
     TeleportActive = false, -- Prevent automatic gear changes when teleport item equipped
@@ -20,11 +21,14 @@ local settings = {
     HybridMode = false,     -- Toggle hybrid DT/DPS mode
     CombatMode = '',        -- Combat optimization: lowacc, highacc, lowatk, highatk, lowhaste, highhaste
     RegenMode = false,      -- Manual regen/idle gear mode - toggleable with /regen
+    THMode = false,         -- Toggle Treasure Hunter mode - toggleable with /th
+    AM3Mode = true,         -- Toggle AM3 TP set automatic swapping - toggleable with /am3
 }
 
 -- Define cape objects separately so they can be referenced in sets
 local petCape = { Name = 'Visucius\'s Mantle', Augment = { [1] = 'Pet: R.Acc.+20', [2] = 'Pet: R.Atk.+20', [3] = 'Pet: Haste+10', [4] = 'Accuracy+20', [5] = 'Attack+20', [6] = 'Pet: Acc.+20', [7] = 'Pet: Atk.+20' } };
 local masterCape = { Name = 'Visucius\'s Mantle', Augment = { [1] = 'Damage taken-5%', [2] = '"Dbl.Atk."+10', [3] = 'Accuracy+20', [4] = 'Attack+20', [5] = 'DEX+30' } };
+local pummelCape = { Name = 'Visucius\'s Mantle', Augment = { [1] = 'STR+30', [2] = 'Crit.hit rate+10', [3] = 'Attack+20', [4] = 'Accuracy+20' } };
 local KaragozEar = { Name = 'Karagoz Earring', Augment = { [1] = 'Accuracy+9', [2] = 'Mag. Acc.+9' } };
 local TurtleCape = { Name = 'Visucius\'s Mantle', Augment = { [1] = 'Pet: R.Acc.+20', [2] = 'Pet: R.Atk.+20', [3] = 'Pet: Damage taken -5%', [4] = 'Pet: "Regen"+10', [5] = 'Pet: Acc.+20', [6] = 'Pet: Atk.+20' } };
 local sets = {
@@ -36,9 +40,9 @@ local sets = {
         Hands = { Name = 'Rao Kote +1', AugPath = 'C' },
         Legs = { Name = 'Rao Haidate +1', AugPath = 'C' },
         Feet = { Name = 'Rao Sune-Ate +1', AugPath = 'C' },
-        Neck = "Shulmanu Collar",
+        Neck = "Lissome Necklace",
         Waist = "Moonbow Belt +1",
-        Ear1 = "Mache Earring +1",
+        Ear1 = "Sroda Earring",
         Ear2 = KaragozEar,
         Ring1 = "Gere Ring",
         Ring2 = "Niqmaddu Ring",
@@ -113,6 +117,7 @@ local sets = {
         Head = "Pitre Taj +3",
         Body = "Pitre Tobe +3",
         Hands = "Karagoz Guanti +2",
+        --        Hands = { Name = 'Herculean Gloves', Augment = { [1] = 'Pet: "Dbl.Atk."+2', [2] = 'Pet: Rng. Acc.+15', [3] = 'Pet: Accuracy+15', [4] = 'Pet: Crit.hit rate +2' } },
         Legs = "Kara. Pantaloni +2",
         Feet = "Mpaca\'s Boots",
         Neck = "Shulmanu Collar",
@@ -140,6 +145,22 @@ local sets = {
         Back = TurtleCape,
     },
 
+    -- Pet Hybrid mode (balance between pet DT and pet DPS)
+    PetHybrid = Equip.NewSet {
+        Head = "Pitre Taj +3",
+        Body = "Pitre Tobe +3",
+        Hands = { Name = 'Rao Kote +1', AugPath = 'C' },
+        Legs = { Name = 'Rao Haidate +1', AugPath = 'C' },
+        Feet = "Mpaca\'s Boots",
+        Neck = "Shulmanu Collar",
+        Waist = "Klouskap Sash +1",
+        Ear1 = "Burana Earring",
+        Ear2 = KaragozEar,
+        Ring1 = "Thurandaut Ring",
+        Ring2 = "Varar Ring +1",
+        Back = TurtleCape,
+    },
+
     -- Master melee sets
     Engaged = Equip.NewSet {
         Head = "Heyoka Cap +1",
@@ -149,7 +170,7 @@ local sets = {
         Feet = "Mpaca\'s Boots",
         Neck = "Shulmanu Collar",
         Waist = "Moonbow Belt +1",
-        Ear1 = "Mache Earring +1",
+        Ear1 = "Sroda Earring",
         Ear2 = KaragozEar,
         Ring1 = "Gere Ring",
         Ring2 = "Niqmaddu Ring",
@@ -171,6 +192,22 @@ local sets = {
         Ring1 = "Gere Ring",
         Ring2 = "Niqmaddu Ring",
         Back = petCape,
+    },
+
+    -- Aftermath Level 3 TP set (for Kenkonken Mythic AM3 buff)
+    AM3TP = Equip.NewSet {
+        Head = "Ryuo Somen +1",
+        Body = "Mpaca\'s Doublet",
+        Hands = "Malignance Gloves",
+        Legs = "Ryuo Hakama +1",
+        Feet = "Malignance Boots",
+        Neck = "Lissome Necklace",
+        Waist = "Moonbow Belt +1",
+        Ear1 = "Sroda Earring",
+        Ear2 = "Dedition Earring",
+        Ring1 = "Gere Ring",
+        Ring2 = "Niqmaddu Ring",
+        Back = "Null Shawl",
     },
 
     -- Combat Mode Optimization Sets
@@ -274,7 +311,6 @@ local sets = {
 
     -- Master DPS mode (for when pet is mage/not used, focus on master damage)
     Master = Equip.NewSet {
-        Main = "Godhands",
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
         Body = 'Mpaca\'s Doublet',
         Hands = "Herculean Gloves",
@@ -291,19 +327,18 @@ local sets = {
 
     -- Master Store TP mode (for when pet is mage/not used, focus on TP gain for WS chains)
     MasterSTP = Equip.NewSet {
-        Main = "Godhands",
         Head = { Name = 'Ryuo Somen +1', AugPath = 'C' },
-        Body = 'Malignance Tabard',
-        Hands = "Karagoz Guanti +2",
+        Body = 'Mpaca\'s Doublet',
+        Hands = "Herculean Gloves",
         Legs = { Name = 'Ryuo Hakama +1', AugPath = 'D' },
-        Feet = "Mpaca\'s Boots",
-        Neck = "Shulmanu Collar",
+        Feet = "Herculean Boots",
+        Neck = "Lissome Necklace",
         Waist = "Moonbow Belt +1",
-        Ear1 = "Dedition Earring",
-        Ear2 = "Mache Earring +1",
+        Ear1 = "Sroda Earring",
+        Ear2 = "Dedition Earring",
         Ring1 = "Gere Ring",
         Ring2 = "Niqmaddu Ring",
-        Back = masterCape,
+        Back = "Null Shawl",
     },
 
     -- Job abilities
@@ -461,6 +496,22 @@ local sets = {
             Back = masterCape,
         },
 
+        -- Stringing Pummel - VIT-based H2H, Kenkonken mythic WS (5-hit, attack varies by TP)
+        ['Stringing Pummel'] = Equip.NewSet {
+            Head = "Mpaca\'s Cap",
+            Body = "Mpaca\'s Doublet",
+            Hands = "Ryuo Tekko +1",
+            Legs = "Mpaca\'s Hose",
+            Feet = "Mpaca\'s Boots",
+            Neck = "Shulmanu Collar",
+            Waist = "Moonbow Belt +1",
+            Ear1 = "Sroda Earring",
+            Ear2 = "Karagoz Earring",
+            Ring1 = "Gere Ring",
+            Ring2 = "Niqmaddu Ring",
+            Back = pummelCape,
+        },
+
         -- Default fallback for any other weapon skills
         Default = Equip.NewSet {
             Head = "Mpaca\'s Cap",
@@ -490,8 +541,8 @@ local sets = {
     DT = Equip.NewSet {
         Head = "Nyame Helm",
         Body = "Nyame Mail",
-        Hands = "Nyame Gauntlets",
-        Legs = "Nyame Flanchard",
+        Hands = "Karagoz Guanti +2",
+        Legs = "Kara. Pantaloni +2",
         Feet = "Nyame Sollerets",
         Ring1 = "Gelatinous Ring +1",
         Back = masterCape,
@@ -499,12 +550,11 @@ local sets = {
 
     -- Hybrid DT/DPS set (balance between damage taken and offensive stats)
     Hybrid = Equip.NewSet {
-        Main = { Name = 'Xiucoatl', AugPath = 'C' },
         Ammo = 'Automat. Oil +3',
-        Head = 'Nyame Helm',
+        Head = 'Malignance Chapeau',
         Neck = 'Shulmanu Collar',
         Ear1 = 'Sroda Earring',
-        Ear2 = 'Mache Earring +1',
+        Ear2 = 'Dedition Earring',
         Body = 'Malignance Tabard',
         Hands = 'Karagoz Guanti +2',
         Ring1 = 'Gere Ring',
@@ -512,12 +562,18 @@ local sets = {
         Back = { Name = 'Visucius\'s Mantle', Augment = { [1] = 'Damage taken-5%', [2] = '"Dbl.Atk."+10', [3] = 'Accuracy+20', [4] = 'Attack+20', [5] = 'DEX+30' } },
         Waist = 'Moonbow Belt +1',
         Legs = 'Kara. Pantaloni +2',
-        Feet = 'Nyame Sollerets',
+        Feet = 'Malignance Boots',
     },
 
     -- Waltz set (for healing waltzes)
     Waltz = Equip.NewSet {
         Body = "Passion Jacket", -- Enhances Waltz
+    },
+
+    -- Treasure Hunter set
+    TH = Equip.NewSet {
+        Hands = { Name = 'Herculean Gloves', Augment = { [1] = 'Pet: INT+10', [2] = 'Mag. Acc.+11', [3] = 'STR+10', [4] = '"Mag. Atk. Bns."+11', [5] = '"Treasure Hunter"+1' } },
+        Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Mag. Acc.+16', [2] = 'Accuracy+8', [3] = '"Mag. Atk. Bns."+16', [4] = 'MND+12', [5] = '"Treasure Hunter"+2' } },
     },
 
     -- Overdrive set (for when 2-hour is active)
@@ -532,7 +588,7 @@ local sets = {
         Waist = "Klouskap Sash +1",
         Ear1 = "Burana Earring",
         Ear2 = KaragozEar,
-        Ring1 = "Tali'ah Ring",
+        Ring1 = "Thurandaut Ring",
         Ring2 = "Varar Ring +1",
         Back = petCape,
     },
@@ -654,28 +710,6 @@ local sets = {
 local function UpdateWeapon()
     local weapon = settings.Weapon;
 
-    -- Special handling for Godhands - swap the Engaged set to GodhandsTP
-    if weapon == "Godhands" then
-        sets.Engaged = sets.GodhandsTP;
-    else
-        -- For other weapons, ensure Engaged is the default engaged set
-        sets.Engaged = Equip.NewSet {
-            Main = weapon,
-            Head = "Heyoka Cap +1",
-            Body = 'Mpaca\'s Doublet',
-            Hands = "Herculean Gloves",
-            Legs = "Heyoka Subligar +1",
-            Feet = "Mpaca\'s Boots",
-            Neck = "Shulmanu Collar",
-            Waist = "Moonbow Belt +1",
-            Ear1 = "Sroda Earring",
-            Ear2 = "Mache Earring +1",
-            Ring1 = "Gere Ring",
-            Ring2 = "Niqmaddu Ring",
-            Back = petCape,
-        };
-    end
-
     -- Update all existing sets...
     sets.Idle.Main = weapon;
     sets.PetIdle.Tank.Main = weapon;
@@ -684,15 +718,19 @@ local function UpdateWeapon()
     sets.PetIdle.Magic.Main = weapon;
     sets.PupOnly.Main = weapon;
     sets.Turtle.Main = weapon;     -- Added Turtle set
+    sets.PetHybrid.Main = weapon;  -- Added PetHybrid set
     sets.GodhandsTP.Main = weapon; -- Added GodhandsTP set
+    sets.Engaged.Main = weapon;    -- Update Engaged set weapon
+    sets.AM3TP.Main = weapon;      -- Added AM3TP set
     sets.Master.Main = weapon;
-    sets.MasterSTP.Main = weapon; -- Added MasterSTP set
+    sets.MasterSTP.Main = weapon;  -- Added MasterSTP set
     sets.Hybrid.Main = weapon;
     sets.Deploy.Main = weapon;
     sets.Repair.Main = weapon;
     sets.Maintenance.Main = weapon;
     sets.Maneuver.Main = weapon;
     sets.Ventriloquy.Main = weapon;
+    sets.TH.Main = weapon;
 
     sets.Utsusemi.Precast.Main = weapon;
     sets.Utsusemi.Midcast.Main = weapon;
@@ -701,6 +739,7 @@ local function UpdateWeapon()
     sets.WeaponSkill['Shijin Spiral'].Main = weapon;
     sets.WeaponSkill['Victory Smite'].Main = weapon;
     sets.WeaponSkill.HowlingFists.Main = weapon;
+    sets.WeaponSkill['Stringing Pummel'].Main = weapon;
     if weapon == "Karambit" then
         sets.WeaponSkill['Asuran Fists'].Main = weapon;
     end
@@ -741,11 +780,13 @@ profile.OnLoad = function()
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /hybrid /lac fwd hybrid');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /puponly /lac fwd puponly');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /turtle /lac fwd turtle');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias /pethybrid /lac fwd pethybrid');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /master /lac fwd master');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /masterstp /lac fwd masterstp');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /xiu /lac fwd xiu');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /karambit /lac fwd karambit');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /godhands /lac fwd godhands');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias /kkk /lac fwd kkk');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /warpring /lac fwd warpring');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /dimring /lac fwd dimring');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /refresh /lac fwd refresh');
@@ -757,19 +798,24 @@ profile.OnLoad = function()
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /lowhaste /lac fwd lowhaste');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /highhaste /lac fwd highhaste');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias /regen /lac fwd regen');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias /th /lac fwd th');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias /am3 /lac fwd am3');
 
     -- Register hotkey for DEL key
     AshitaCore:GetChatManager():QueueCommand(1, '/bind delete /lac fwd vileelixir');
 
     print('PUP Profile Loaded');
     print(
-        'Commands: /pupmode (tank/melee/range/magic), /dt, /hybrid, /puponly, /turtle, /master, /masterstp, /xiu, /karambit, /godhands, /refresh');
+        'Commands: /pupmode (tank/melee/range/magic), /dt, /hybrid, /puponly, /turtle, /pethybrid, /master, /masterstp, /xiu, /karambit, /godhands, /kkk, /refresh');
     print('Combat Modes: /lowacc, /highacc, /lowatk, /highatk, /lowhaste, /highhaste');
     print('Teleport Commands: /warpring, /dimring');
     print('Regen Control: /regen - Toggle manual regen/idle gear');
+    print('Treasure Hunter: /th - Toggle TH gear mode');
+    print('AM3 Control: /am3 - Toggle Aftermath Lv.3 automatic gear swap (currently: ' .. (settings.AM3Mode and 'ON' or 'OFF') .. ')');
     print('Hotkey: DEL key for Vile Elixir items');
     print('Default weapon: Xiucoatl | PupOnly mode for fights using Lobo only');
-    print('Turtle mode for pet -DT tank | Master mode for pure master DPS | MasterSTP mode for master Store TP | Hybrid mode for DT/DPS balance');
+    print(
+    'Turtle mode for pet -DT tank | PetHybrid for pet DT/DPS balance | Master mode for pure master DPS | MasterSTP mode for master Store TP | Hybrid mode for DT/DPS balance');
     print('NEW: Automatic pet action detection - swaps gear for pet WS/magic!');
 end
 
@@ -779,11 +825,13 @@ profile.OnUnload = function()
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /hybrid');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /puponly');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /turtle');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /pethybrid');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /master');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /masterstp');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /xiu');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /karambit');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /godhands');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /kkk');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /warpring');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /dimring');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /lowacc');
@@ -793,6 +841,8 @@ profile.OnUnload = function()
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /lowhaste');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /highhaste');
     AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /regen');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /th');
+    AshitaCore:GetChatManager():QueueCommand(1, '/alias delete /am3');
 
     -- Unbind DEL key
     AshitaCore:GetChatManager():QueueCommand(1, '/unbind delete');
@@ -821,7 +871,9 @@ profile.HandleCommand = function(args)
             settings.MasterMode = false;
             settings.PupOnly = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('DT mode: ' .. (settings.DTMode and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
@@ -835,7 +887,9 @@ profile.HandleCommand = function(args)
             settings.MasterMode = false;
             settings.PupOnly = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('Hybrid mode: ' .. (settings.HybridMode and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
@@ -848,7 +902,9 @@ profile.HandleCommand = function(args)
             settings.HybridMode = false;
             settings.MasterMode = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('PupOnly mode: ' .. (settings.PupOnly and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
@@ -861,9 +917,26 @@ profile.HandleCommand = function(args)
             settings.HybridMode = false;
             settings.MasterMode = false;
             settings.PupOnly = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('Turtle mode: ' .. (settings.TurtleMode and 'On' or 'Off'));
+        profile.HandleDefault(); -- Refresh gear
+        return;
+    elseif (args[1] == 'pethybrid') then
+        settings.PetHybridMode = not settings.PetHybridMode;
+        -- Clear other conflicting modes when activating
+        if settings.PetHybridMode then
+            settings.DTMode = false;
+            settings.HybridMode = false;
+            settings.MasterMode = false;
+            settings.PupOnly = false;
+            settings.TurtleMode = false;
+            settings.CombatMode = '';
+            settings.THMode = false;
+        end
+        print('Pet Hybrid mode: ' .. (settings.PetHybridMode and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
         return;
     elseif (args[1] == 'master') then
@@ -875,7 +948,9 @@ profile.HandleCommand = function(args)
             settings.MasterSTPMode = false;
             settings.PupOnly = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('Master mode: ' .. (settings.MasterMode and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
@@ -889,7 +964,9 @@ profile.HandleCommand = function(args)
             settings.MasterMode = false;
             settings.PupOnly = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('MasterSTP mode: ' .. (settings.MasterSTPMode and 'On' or 'Off'));
         profile.HandleDefault(); -- Refresh gear
@@ -908,6 +985,11 @@ profile.HandleCommand = function(args)
         settings.Weapon = 'Godhands';
         UpdateWeapon();
         print('Weapon set to: Godhands');
+        return;
+    elseif (args[1] == 'kkk') then
+        settings.Weapon = 'Kenkonken';
+        UpdateWeapon();
+        print('Weapon set to: Kenkonken');
         return;
     elseif (args[1] == 'warpring') then
         -- Equip warp ring and use it after 10 seconds
@@ -948,6 +1030,7 @@ profile.HandleCommand = function(args)
         settings.HybridMode = false;
         settings.MasterMode = false;
         settings.CombatMode = '';
+        settings.THMode = false;
         print('Returning to normal gear');
         profile.HandleDefault();
         return;
@@ -959,6 +1042,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'LowAcc';
         print('Combat Mode: Low Accuracy (easy targets)');
         profile.HandleDefault();
@@ -970,6 +1055,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'HighAcc';
         print('Combat Mode: High Accuracy (tough targets)');
         profile.HandleDefault();
@@ -981,6 +1068,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'LowAtk';
         print('Combat Mode: Low Attack (high defense targets)');
         profile.HandleDefault();
@@ -992,6 +1081,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'HighAtk';
         print('Combat Mode: High Attack (glass cannon)');
         profile.HandleDefault();
@@ -1003,6 +1094,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'LowHaste';
         print('Combat Mode: Low Haste (need more haste)');
         profile.HandleDefault();
@@ -1014,6 +1107,8 @@ profile.HandleCommand = function(args)
         settings.MasterMode = false;
         settings.PupOnly = false;
         settings.TurtleMode = false;
+        settings.PetHybridMode = false;
+        settings.THMode = false;
         settings.CombatMode = 'HighHaste';
         print('Combat Mode: High Haste (haste capped)');
         profile.HandleDefault();
@@ -1027,9 +1122,37 @@ profile.HandleCommand = function(args)
             settings.MasterMode = false;
             settings.PupOnly = false;
             settings.TurtleMode = false;
+            settings.PetHybridMode = false;
             settings.CombatMode = '';
+            settings.THMode = false;
         end
         print('Regen mode: ' .. (settings.RegenMode and 'On' or 'Off'));
+        profile.HandleDefault(); -- Refresh gear
+        return;
+    elseif (args[1] == 'th') then
+        settings.THMode = not settings.THMode;
+        -- Clear other conflicting modes when activating
+        if settings.THMode then
+            settings.DTMode = false;
+            settings.HybridMode = false;
+            settings.MasterMode = false;
+            settings.PupOnly = false;
+            settings.TurtleMode = false;
+            settings.PetHybridMode = false;
+            settings.CombatMode = '';
+            settings.RegenMode = false;
+        end
+        print('Treasure Hunter mode: ' .. (settings.THMode and 'On' or 'Off'));
+        profile.HandleDefault(); -- Refresh gear
+        return;
+    elseif (args[1] == 'am3') then
+        settings.AM3Mode = not settings.AM3Mode;
+        print('AM3 automatic gear swap: ' .. (settings.AM3Mode and 'On' or 'Off'));
+        if settings.AM3Mode then
+            print('AM3TP set will automatically equip when Aftermath: Lv.3 buff is active');
+        else
+            print('AM3TP set disabled - will use normal Engaged set even with Aftermath: Lv.3');
+        end
         profile.HandleDefault(); -- Refresh gear
         return;
     elseif (args[1] == 'vileelixir') then
@@ -1110,6 +1233,10 @@ local function GetBaseSet()
         return sets.Turtle;
     end
 
+    if (settings.PetHybridMode) then
+        return sets.PetHybrid;
+    end
+
     if (settings.RegenMode) then
         -- In regen mode, use idle gear based on pet status
         if (pet and pet.isvalid) then
@@ -1117,6 +1244,10 @@ local function GetBaseSet()
         else
             return sets.Idle;
         end
+    end
+
+    if (settings.THMode) then
+        return sets.TH;
     end
 
     -- Check for damage/defensive modes
@@ -1137,6 +1268,11 @@ local function GetBaseSet()
 
     -- Handle different player states
     if (player.Status == 'Engaged') then
+        -- Check for Aftermath: Lv.3 buff (highest priority for engaged) - only if AM3Mode is enabled
+        if (settings.AM3Mode and Status.HasStatus('Aftermath: Lv.3')) then
+            return sets.AM3TP;
+        end
+        
         -- Check for combat mode overrides
         if (settings.CombatMode ~= '' and sets.CombatModes[settings.CombatMode]) then
             return sets.CombatModes[settings.CombatMode];
