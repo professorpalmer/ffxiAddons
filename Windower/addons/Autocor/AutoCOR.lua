@@ -85,6 +85,81 @@ local finish_act = L{2,3,5}
 local start_act = L{7,8,9,12}
 local is_casting = false
 
+-- Advanced J-Roller state tracking
+local lastRoll = 0
+local rollCrooked = false
+local roll1RollTime = 0
+local roll2RollTime = 0
+local mainjob = nil
+local subjob = nil
+local hasSnakeEye = false
+local hasFold = false
+local partyAlertSent = false
+local partyAlertTime = 0
+local bustWaitingMessageSent = false
+local roll1CompleteTime = 0  -- Track when Roll 1 completed for Random Deal timing
+local lastSnakeEyeTime = 0   -- Track when Snake Eye was last used to handle latency
+
+local function addon_message(str)
+    windower.add_to_chat(207, _addon.name..': '..str)
+end
+
+-- Check for buffs by name (from J-Roller)
+local function hasBuff(matchBuff)
+    local buffs = windower.ffxi.get_player().buffs
+    if type(matchBuff) == 'string' then
+        local matchText = string.lower(matchBuff)
+        for _, buff in pairs(buffs) do
+            local buffString = res.buffs[buff] and res.buffs[buff].english
+            if buffString then
+                buffString = string.lower(buffString)
+                if buffString == matchText then
+                    return true
+                end
+            end
+        end
+    elseif type(matchBuff) == 'number' then
+        for _, buff in pairs(buffs) do
+            if buff == matchBuff then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Check for incapacitation status (from J-Roller)
+local function isIncapacitated()
+    return hasBuff(16)    -- Amnesia
+        or hasBuff(261)   -- Impairment  
+        or hasBuff(7)     -- Petrification
+        or hasBuff(10)    -- Stun
+        or hasBuff(0)     -- KO/Dead
+        or hasBuff(14)    -- Charm
+        or hasBuff(28)    -- Terror
+        or hasBuff(2)     -- Sleep
+end
+
+-- Job info and merit ability detection (from J-Roller)
+local function updateJobInfo()
+    local player = windower.ffxi.get_player()
+    if not player then return end
+    
+    mainjob = player.main_job_id
+    subjob = player.sub_job_id
+    
+    -- Merit abilities are only available to main job COR (job id 17)
+    if mainjob == 17 then
+        -- Main job COR: use manual merit ability settings
+        hasSnakeEye = settings.hasSnakeEye
+        hasFold = settings.hasFold
+    else
+        -- Subjob COR: no merit abilities available
+        hasSnakeEye = false
+        hasFold = false
+    end
+end
+
 local rolls = T{
     [98] = {id=98,buff=310,en="Fighter's Roll",lucky=5,unlucky=9,bonus="Double Attack Rate",job='War'},
     [99] = {id=99,buff=311,en="Monk's Roll",lucky=3,unlucky=7,bonus="Subtle Blow",job='Mnk'},
@@ -130,18 +205,20 @@ local function shouldDoubleUp(rollNum, currentRoll)
     local player = windower.ffxi.get_player()
     if not player then return false, "No player data" end
     
-    -- Update job info locally since we can't rely on global variables
-    local current_mainjob = player.main_job_id
-    local current_subjob = player.sub_job_id
-    
     local roll = rolls:with('en', currentRoll)
     if not roll then return false, "Invalid roll" end
     
     local luckyNum = roll.lucky
     local unluckyNum = roll.unlucky
     
+    -- Safety check: ensure job info is set
+    if not mainjob then
+        addon_message("ERROR: mainjob not set! Please report this bug.")
+        return false, "Job info not initialized (mainjob is nil)"
+    end
+    
     -- Sub-COR simplified strategy: double up if roll < 5
-    if current_subjob == 17 and current_mainjob ~= 17 then
+    if subjob == 17 and mainjob ~= 17 then
         if rollNum < 5 then
             return true, "Sub-COR: Roll < 5"
         end
@@ -157,7 +234,7 @@ local function shouldDoubleUp(rollNum, currentRoll)
     end
     
     -- Main COR advanced strategy (from J-Roller)
-    if current_mainjob == 17 then
+    if mainjob == 17 then
         -- Gamble mode: aggressive strategy targeting 11s
         if settings.gamble then
             -- If we have bust immunity (last roll was 11), be extremely aggressive
@@ -227,7 +304,7 @@ local function shouldDoubleUp(rollNum, currentRoll)
                 if hasFold and abil_recasts[198] and abil_recasts[198] == 0 then
                     return true, "Roll 7: Doubling up with Fold insurance for 8+"
                 else
-                    return false, "Stopping: Roll 7 without Fold insurance"
+                    return false, "Stopping: Roll 7 without Fold insurance (hasFold=" .. tostring(hasFold) .. ", CD=" .. tostring(abil_recasts[198] or 0) .. ")"
                 end
             end
             
@@ -266,7 +343,7 @@ local function executeSnakeEye(rollNum, currentRoll)
     if not player then return false end
     
     -- Skip Snake Eye logic for sub-COR
-    if (player.sub_job_id == 17 and player.main_job_id ~= 17) or not hasSnakeEye then
+    if (subjob == 17 and mainjob ~= 17) or not hasSnakeEye then
         return false
     end
     
@@ -277,6 +354,12 @@ local function executeSnakeEye(rollNum, currentRoll)
     local snakeEyesActive = hasBuff("Snake Eye")
     local luckyNum = roll.lucky
     local unluckyNum = roll.unlucky
+    
+    -- Check for latency gap: used Snake Eye recently but buff not up yet
+    if os.clock() - lastSnakeEyeTime < 3 then
+        -- We likely used Snake Eye and are waiting for buff or effect
+        return true -- Wait
+    end
     
     if snakeEyesActive then
         addon_message("Snake Eye buff detected, queueing Double-Up immediately")
@@ -297,6 +380,7 @@ local function executeSnakeEye(rollNum, currentRoll)
                 if rollNum == 10 or (rollNum == (luckyNum - 1) and rollCrooked) then
                     addon_message("Gamble + Bust Immune: Snake Eye for guaranteed benefit")
                     use_JA("Snake Eye", '<me>')
+                    lastSnakeEyeTime = os.clock()
                     return true
                 end
             else
@@ -304,10 +388,12 @@ local function executeSnakeEye(rollNum, currentRoll)
                 if rollNum == 10 then
                     addon_message("Gamble: Snake Eye 10→11 for bust immunity")
                     use_JA("Snake Eye", '<me>')
+                    lastSnakeEyeTime = os.clock()
                     return true
                 elseif rollNum == (luckyNum - 1) and rollCrooked then
                     addon_message("Gamble: Snake Eye for lucky number")
                     use_JA("Snake Eye", '<me>')
+                    lastSnakeEyeTime = os.clock()
                     return true
                 end
             end
@@ -318,14 +404,17 @@ local function executeSnakeEye(rollNum, currentRoll)
             if rollNum == 10 then
                 addon_message("Standard: Snake Eye 10→11")
                 use_JA("Snake Eye", '<me>')
+                lastSnakeEyeTime = os.clock()
                 return true
             elseif rollNum == (luckyNum - 1) and rollCrooked then
                 addon_message("Standard: Snake Eye for lucky number")
                 use_JA("Snake Eye", '<me>')
+                lastSnakeEyeTime = os.clock()
                 return true
             elseif rollNum == unluckyNum then
                 addon_message("Standard: Snake Eye to avoid unlucky")
                 use_JA("Snake Eye", '<me>')
+                lastSnakeEyeTime = os.clock()
                 return true
             end
         end
@@ -349,6 +438,7 @@ local function executeSnakeEye(rollNum, currentRoll)
                 if snakeEyeWillBeReady and (rollNum + 1) ~= unluckyNum then
                     addon_message("Smart optimization (Roll 2): Snake Eye " .. rollNum .. "→" .. (rollNum + 1) .. " (will recharge in time)")
                     use_JA("Snake Eye", '<me>')
+                    lastSnakeEyeTime = os.clock()
                     return true
                 end
             end
@@ -369,19 +459,6 @@ local incoming_chunk = nil
 local outgoing_chunk = nil
 local user_events = nil
 
--- Advanced J-Roller state tracking
-local lastRoll = 0
-local rollCrooked = false
-local roll1RollTime = 0
-local roll2RollTime = 0
-local mainjob = nil
-local subjob = nil
-local hasSnakeEye = false
-local hasFold = false
-local partyAlertSent = false
-local partyAlertTime = 0
-local bustWaitingMessageSent = false
-
 do
     local equippable_bags = {'Inventory','Wardrobe','Wardrobe2','Wardrobe3','Wardrobe4'}
 
@@ -395,66 +472,6 @@ do
             end
         end
     end
-end
-
-local function addon_message(str)
-    windower.add_to_chat(207, _addon.name..': '..str)
-end
-
--- Job info and merit ability detection (from J-Roller)
-local function updateJobInfo()
-    local player = windower.ffxi.get_player()
-    if not player then return end
-    
-    mainjob = player.main_job_id
-    subjob = player.sub_job_id
-    
-    -- Merit abilities are only available to main job COR (job id 17)
-    if mainjob == 17 then
-        -- Main job COR: use manual merit ability settings
-        hasSnakeEye = settings.hasSnakeEye
-        hasFold = settings.hasFold
-    else
-        -- Subjob COR: no merit abilities available
-        hasSnakeEye = false
-        hasFold = false
-    end
-end
-
--- Check for buffs by name (from J-Roller)
-local function hasBuff(matchBuff)
-    local buffs = windower.ffxi.get_player().buffs
-    if type(matchBuff) == 'string' then
-        local matchText = string.lower(matchBuff)
-        for _, buff in pairs(buffs) do
-            local buffString = res.buffs[buff] and res.buffs[buff].english
-            if buffString then
-                buffString = string.lower(buffString)
-                if buffString == matchText then
-                    return true
-                end
-            end
-        end
-    elseif type(matchBuff) == 'number' then
-        for _, buff in pairs(buffs) do
-            if buff == matchBuff then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Check for incapacitation status (from J-Roller)
-local function isIncapacitated()
-    return hasBuff(16)    -- Amnesia
-        or hasBuff(261)   -- Impairment  
-        or hasBuff(7)     -- Petrification
-        or hasBuff(10)    -- Stun
-        or hasBuff(0)     -- KO/Dead
-        or hasBuff(14)    -- Charm
-        or hasBuff(28)    -- Terror
-        or hasBuff(2)     -- Sleep
 end
 
 local function calculate_buffs(curbuffs)
@@ -575,6 +592,57 @@ local function check_outgoing_chunk(id,data,modified,is_injected,is_blocked)
     end
 end
 
+local function try_random_deal()
+    local abil_recasts = windower.ffxi.get_ability_recasts()
+    if not (abil_recasts[196] and abil_recasts[196] == 0 and use_random_deal >= 1) then
+        return false
+    end
+
+    -- J-Roller Random Deal logic: Check if any abilities are on cooldown that would benefit
+    local should_use_random_deal = false
+    local resetReasons = {}
+    
+    -- Check what abilities are on cooldown and would benefit from reset
+    if settings.oldrandomdeal then
+        -- Old mode: Only reset Snake Eye and Fold
+        if hasSnakeEye and abil_recasts[197] and abil_recasts[197] > 0 then
+            resetReasons[#resetReasons + 1] = "Snake Eye"
+            should_use_random_deal = true
+        end
+        if hasFold and abil_recasts[198] and abil_recasts[198] > 0 then
+            resetReasons[#resetReasons + 1] = "Fold"
+            should_use_random_deal = true
+        end
+    else
+        -- New mode: Reset Crooked Cards primarily, Snake Eye and Fold secondarily
+        if abil_recasts[96] and abil_recasts[96] > 0 then
+            resetReasons[#resetReasons + 1] = "Crooked Cards"
+            should_use_random_deal = true
+        end
+        if hasSnakeEye and abil_recasts[197] and abil_recasts[197] > 0 then
+            resetReasons[#resetReasons + 1] = "Snake Eye"
+            should_use_random_deal = true
+        end
+        if hasFold and abil_recasts[198] and abil_recasts[198] > 0 then
+            resetReasons[#resetReasons + 1] = "Fold"
+            should_use_random_deal = true
+        end
+        -- Check Phantom Roll if it has significant cooldown remaining (>10s)
+        if abil_recasts[193] and abil_recasts[193] > 10 then
+            resetReasons[#resetReasons + 1] = "Phantom Roll"
+            should_use_random_deal = true
+        end
+    end
+    
+    if should_use_random_deal then
+        local reason = table.concat(resetReasons, ", ")
+        addon_message("Using Random Deal to reset: " .. reason)
+        use_JA("Random Deal", "<me>")
+        return true
+    end
+    return false
+end
+
 local function prerender()
     if not actions then return end
     local curtime = os.clock()
@@ -584,11 +652,14 @@ local function prerender()
 		nexttime = curtime
         local play = windower.ffxi.get_player()
 		
-		-- Update job info for advanced logic
+		-- Check basic player status first
+		if not play then return end
+		
+		-- Update job info for advanced logic (must come after player check)
 		updateJobInfo()
 		
 		local isCor = play and (play.main_job == 'COR' or play.sub_job == 'COR')
-        if not play or not isCor or play.status > 1 then return end	
+        if not isCor or play.status > 1 then return end	
 		
 		-- Advanced safety checks from J-Roller
 		if isIncapacitated() then return end
@@ -631,21 +702,32 @@ local function prerender()
 			if (settings.roll[x] ~= 'none') then
 				local roll = rolls:with('en',settings.roll[x])
 				if not buffs[roll.buff] then
+					-- Roll buff not present - need to cast it
 					if abil_recasts[193] == 0 then
 						if x == settings.crooked_cards and abil_recasts[96] and abil_recasts[96] == 0 then
 							use_JA("Crooked Cards", '<me>')
 						else
 							use_JA(('%s'):format(roll.en), '<me>')
 						end
+                    else
+                        -- Phantom Roll on cooldown. Try Random Deal to reset it.
+                        if try_random_deal() then return end
 					end
 					return
 				elseif buffs[308] and buffs[308] == roll.id then
+					-- We have phantom roll window for this roll - double up logic
 					-- Check if roll is complete (lucky or 11)
 					if buffs[roll.buff] == roll.lucky or buffs[roll.buff] == 11 then
 						-- Roll is complete, clear phantom roll buff to allow next roll
 						buffs[308] = nil
 						addon_message("Roll " .. x .. " complete: " .. roll.en .. " = " .. buffs[roll.buff] .. 
 							(buffs[roll.buff] == roll.lucky and " (Lucky!)" or buffs[roll.buff] == 11 and " (Perfect!)" or ""))
+						
+                        -- Attempt Random Deal immediately if this was Roll 1
+                        if x == 1 then
+                            if try_random_deal() then return end
+                        end
+                        
 						-- Continue to next iteration to start next roll
 					elseif buffs[roll.buff] ~= roll.lucky and buffs[roll.buff] ~= 11 then
 						-- Track roll timing for smart Snake Eye optimization
@@ -665,17 +747,30 @@ local function prerender()
 						
 						-- Use advanced double-up logic
 						local shouldDouble, reason = shouldDoubleUp(buffs[roll.buff], roll.en)
-						if shouldDouble and abil_recasts[194] and abil_recasts[194] == 0 then
-							addon_message("Double-Up: " .. reason)
-							use_JA("Double-Up", '<me>')
+						
+                        if shouldDouble then
+                            if (abil_recasts[194] or 0) == 0 then
+                                addon_message("Double-Up: " .. reason)
+                                use_JA("Double-Up", '<me>')
+                            else
+                                -- Double-Up desired but on cooldown (animation delay?). Wait.
+                                return
+                            end
 						else
 							addon_message("Stopping: " .. (reason or "Advanced logic determined not to double-up"))
 							-- Clear phantom roll buff so we can move to next roll
 							buffs[308] = nil
+                            
+                            -- Attempt Random Deal immediately if this was Roll 1
+                            if x == 1 then
+                                if try_random_deal() then return end
+                            end
 						end
 						return
 					end
 				end
+				-- else: Roll buff is present but no phantom roll window = roll is complete and stable
+				-- Continue to next roll check
 			end
         end
     end
@@ -699,69 +794,15 @@ local function prerender()
 			nextdraw = curtime + quick_delay
 			use_JA(quick_draw_shot, "<bt>")
 		elseif abil_recasts[196] and abil_recasts[196] == 0 and use_random_deal >= 1 then
-			-- Advanced Random Deal logic with priority system (from J-Roller)
-			local should_use_random_deal = false
-			local resetReasons = {}
-			
-			-- Check what abilities are on cooldown and would benefit from reset
-			if settings.oldrandomdeal then
-				-- Old mode: Only reset Snake Eye and Fold
-				if hasSnakeEye and abil_recasts[197] and abil_recasts[197] > 0 then
-					resetReasons[#resetReasons + 1] = "Snake Eye"
-					should_use_random_deal = true
-				end
-				if hasFold and abil_recasts[198] and abil_recasts[198] > 0 then
-					resetReasons[#resetReasons + 1] = "Fold"
-					should_use_random_deal = true
-				end
-			else
-				-- New mode: Priority-based reset using configured priority list
-				for _, ability in ipairs(settings.randomDealPriority) do
-					if ability == 'Crooked Cards' and abil_recasts[96] and abil_recasts[96] > 0 then
-						resetReasons[#resetReasons + 1] = "Crooked Cards"
-						should_use_random_deal = true
-						break -- Stop at first priority ability found
-					elseif ability == 'Snake Eye' and hasSnakeEye and abil_recasts[197] and abil_recasts[197] > 0 then
-						resetReasons[#resetReasons + 1] = "Snake Eye"
-						should_use_random_deal = true
-						break -- Stop at first priority ability found
-					elseif ability == 'Fold' and hasFold and abil_recasts[198] and abil_recasts[198] > 0 then
-						resetReasons[#resetReasons + 1] = "Fold"
-						should_use_random_deal = true
-						break -- Stop at first priority ability found
-					end
-				end
-			end
-			
-			-- Enhanced timing logic: Use Random Deal at optimal moments
-			if should_use_random_deal then
-				local optimal_timing = false
-				
-				-- Original timing: Before second roll when first roll is complete
-				if settings.roll[1] ~= 'none' and settings.roll[2] ~= 'none' then
-					local roll1 = rolls:with('en', settings.roll[1])
-					local roll2 = rolls:with('en', settings.roll[2])
-					
-					if roll1 and roll2 and buffs[roll1.buff] and not buffs[roll2.buff] and not buffs[308] then
-						optimal_timing = true
-					end
-				end
-				
-				-- Alternative timing: After completing a roll (11 or lucky)
-				if buffs[308] then
-					local current_roll = rolls[buffs[308]]
-					if current_roll and (lastRoll == 11 or lastRoll == current_roll.lucky) then
-						optimal_timing = true
-					end
-				end
-				
-				if optimal_timing then
-					nextdraw = curtime
-					local reason = table.concat(resetReasons, ", ")
-					addon_message("Using Random Deal to reset: " .. reason)
-					use_JA("Random Deal", "<me>")
-				end
-			end
+            local roll1 = rolls:with('en', settings.roll[1])
+            local roll2 = rolls:with('en', settings.roll[2])
+            
+            -- Check if Roll 1 is complete and Roll 2 is not active yet (and not in phantom roll window)
+            if roll1 and roll2 and buffs[roll1.buff] and not buffs[roll2.buff] and not buffs[308] then
+                if try_random_deal() then
+                    nextdraw = curtime
+                end
+            end
 		end
 	end
 end
@@ -981,6 +1022,15 @@ local function addon_command(...)
 		addon_message('Last Roll: ' .. tostring(lastRoll))
 		addon_message('Settings Snake Eye: ' .. tostring(settings.hasSnakeEye))
 		addon_message('Settings Fold: ' .. tostring(settings.hasFold))
+		addon_message('Random Deal Enabled: ' .. tostring(settings.randomdeal))
+		
+		-- Show current recast status
+		local abil_recasts = windower.ffxi.get_ability_recasts()
+		addon_message('=== Recast Status ===')
+		addon_message('Snake Eye (197): ' .. tostring(abil_recasts[197] or 0))
+		addon_message('Fold (198): ' .. tostring(abil_recasts[198] or 0))
+		addon_message('Random Deal (196): ' .. tostring(abil_recasts[196] or 0))
+		addon_message('Crooked Cards (96): ' .. tostring(abil_recasts[96] or 0))
     elseif commands[1] == 'aoe' and commands[2] then
         local slot = tonumber(commands[2], 6, 0) or commands[2]:match('[1-5]')
         slot = slot and 'p' .. slot or get_party_member_slot(commands[2])
