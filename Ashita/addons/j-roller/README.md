@@ -81,6 +81,7 @@ Quick access to optimized roll setups:
 - **`engaged`**: Only roll while engaged in combat (default: off)
 - **`townmode`**: Prevent rolling in towns and safe zones (default: off)
 - **`burnsnakeeye`**: Use Snake Eye liberally on rolls 6+ when ending (merited Snake Eye has 40% chance for 11) (default: on)
+- **`showJGUI`**: Show/hide main J-GUI overlay (default: on)
 - **`hasSnakeEye/hasFold`**: Manual merit ability control (default: on)
 
 ## 📋 **Commands**

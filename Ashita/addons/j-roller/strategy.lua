@@ -363,12 +363,18 @@ function RollingStrategy:shouldDoubleUp()
 	local luckyNum = current.lucky
 	local unluckyNum = current.unlucky
 
-	-- Sub-COR simplified strategy: double up if roll < 5
+	-- Sub-COR simplified strategy: stop at lucky number or roll >= 5
 	if self.subjob == 17 then
-		if self.rollNum < 5 then
-			return true, "Sub-COR: Roll < 5"
+		-- Stop if we hit the lucky number (optimal outcome)
+		if self.rollNum == luckyNum then
+			return false, "Sub-COR: Hit lucky number " .. luckyNum
 		end
-		return false, "Sub-COR: Roll >= 5, stopping"
+		-- Stop if roll >= 5 to avoid bust risk
+		if self.rollNum >= 5 then
+			return false, "Sub-COR: Roll >= 5, stopping to avoid bust"
+		end
+		-- Otherwise continue (roll is 1-4 and not lucky)
+		return true, "Sub-COR: Roll < 5 and not lucky, continuing"
 	end
 
 	-- Safe mode: use subjob-like strategy even on main COR

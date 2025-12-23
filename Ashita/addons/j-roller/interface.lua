@@ -21,11 +21,10 @@ function ImGuiInterface.new(dependencies)
         applyPreset = dependencies.applyPreset,
         once = dependencies.once,
         setOnce = dependencies.setOnce,
-        
         -- State variables
         showImGuiMenu = { dependencies.settings.showImGuiMenu },
         imguiFirstRun = true,
-        
+
         -- Job info (updated from main)
         mainjob = nil,
         subjob = nil,
