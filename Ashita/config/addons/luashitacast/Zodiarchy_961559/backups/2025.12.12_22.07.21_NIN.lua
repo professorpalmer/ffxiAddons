@@ -383,9 +383,8 @@ local sets = {
 
     -- Treasure Hunter set
     TH = Equip.NewSet {
-        Ammo = 'Per. Lucky Egg',
-        Hands = { Name = 'Herculean Gloves', Augment = { [1] = 'Weapon Skill Acc.+19', [2] = 'Mag. Acc.+1', [3] = 'STR+11', [4] = '"Mag. Atk. Bns."+1', [5] = '"Treasure Hunter"+1' } },
-        Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Mag. Acc.+16', [2] = 'Accuracy+8', [3] = '"Mag. Atk. Bns."+16', [4] = 'MND+12', [5] = '"Treasure Hunter"+2' } },
+        Waist = 'Chaac Belt',
+        Feet = { Name = 'Herculean Boots', Augment = { [1] = 'Accuracy+19', [2] = 'CHR+3', [3] = 'Attack+11', [4] = '"Treasure Hunter"+2' } },
     },
 
     -- Dusk to Dawn set (17:00-07:00 in-game time) - applies when not engaged
