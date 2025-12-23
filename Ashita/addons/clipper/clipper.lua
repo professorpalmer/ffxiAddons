@@ -31,11 +31,12 @@ addon.link      = 'https://ashitaxi.com/';
 require('common');
 local ffi = require('ffi');
 
--- Define Windows clipboard API functions
+-- Define Windows clipboard and conversion API functions
 ffi.cdef[[
     typedef void* HANDLE;
     typedef HANDLE HWND;
     typedef unsigned int UINT;
+    typedef int BOOL;
     
     bool OpenClipboard(HWND hWndNewOwner);
     bool CloseClipboard(void);
@@ -43,17 +44,34 @@ ffi.cdef[[
     void* GlobalLock(HANDLE hMem);
     bool GlobalUnlock(HANDLE hMem);
     size_t GlobalSize(HANDLE hMem);
+    
+    // For UTF-16 to Shift-JIS conversion
+    int WideCharToMultiByte(
+        UINT CodePage,
+        unsigned long dwFlags,
+        const wchar_t* lpWideCharStr,
+        int cchWideChar,
+        char* lpMultiByteStr,
+        int cbMultiByte,
+        const char* lpDefaultChar,
+        BOOL* lpUsedDefaultChar
+    );
 ]];
 
 -- Windows clipboard format constants
 local CF_TEXT = 1;          -- ANSI text
 local CF_UNICODETEXT = 13;  -- Unicode text
 
+-- Windows code page constants
+local CP_ACP = 0;           -- System default ANSI code page
+local CP_SHIFTJIS = 932;    -- Shift-JIS (Japanese)
+
 -- Settings
 local clipper = {
     debug_mode = false,
     max_length = 200, -- FFXI chat message limit
     auto_send = false, -- If true, automatically sends; if false, just types into chat input
+    unicode_mode = true, -- If true, converts Unicode to Shift-JIS (Japanese); if false, ASCII only
 };
 
 --[[
@@ -71,58 +89,76 @@ local function GetClipboardText()
     
     local clipboard_text = nil;
     
-    -- Try Unicode text first (more common on modern Windows)
+    -- Try Unicode text first and convert to Shift-JIS (Japanese FFXI encoding)
     local hData = ffi.C.GetClipboardData(CF_UNICODETEXT);
     
     if hData ~= nil then
-        -- Lock the clipboard data to get a pointer
         local pData = ffi.C.GlobalLock(hData);
         
         if pData ~= nil then
-            -- Get the size of the data
             local size = ffi.C.GlobalSize(hData);
             
             if size > 0 then
-                -- Convert wide string to Lua string
                 local wstr = ffi.cast('const wchar_t*', pData);
                 
-                -- Convert wchar_t* to regular string
-                local str_table = {};
-                local i = 0;
-                while i < size / 2 - 1 do -- size is in bytes, wchar_t is 2 bytes
-                    local char_code = wstr[i];
-                    if char_code == 0 then
-                        break;
-                    end
-                    -- Only keep ASCII-compatible characters for FFXI
-                    if char_code < 128 then
-                        table.insert(str_table, string.char(char_code));
-                    else
-                        -- Replace non-ASCII with space
-                        table.insert(str_table, ' ');
-                    end
-                    i = i + 1;
-                end
+                -- First, determine how many bytes we need for the Shift-JIS conversion
+                local bytesNeeded = ffi.C.WideCharToMultiByte(
+                    CP_SHIFTJIS,  -- Use Shift-JIS encoding (Japanese)
+                    0,            -- No special flags
+                    wstr,         -- Source wide string
+                    -1,           -- Null-terminated
+                    nil,          -- Don't write yet, just get size
+                    0,            -- Buffer size is 0
+                    nil,          -- No default char
+                    nil           -- Don't care if default char used
+                );
                 
-                clipboard_text = table.concat(str_table);
+                if bytesNeeded > 0 then
+                    -- Allocate buffer for the converted string
+                    local buffer = ffi.new('char[?]', bytesNeeded);
+                    
+                    -- Actually convert to Shift-JIS
+                    local result = ffi.C.WideCharToMultiByte(
+                        CP_SHIFTJIS,
+                        0,
+                        wstr,
+                        -1,
+                        buffer,
+                        bytesNeeded,
+                        nil,
+                        nil
+                    );
+                    
+                    if result > 0 then
+                        -- Convert to Lua string (preserves Shift-JIS encoding)
+                        clipboard_text = ffi.string(buffer);
+                        
+                        if clipper.debug_mode then
+                            print(string.format('[Clipper] Converted %d wide chars to %d bytes (Shift-JIS)', 
+                                size / 2, bytesNeeded));
+                        end
+                    end
+                end
             end
             
-            -- Unlock the clipboard data
             ffi.C.GlobalUnlock(hData);
         end
-    else
-        -- Fallback to ANSI text
+    end
+    
+    -- If Unicode conversion failed, try ANSI text as fallback
+    if not clipboard_text or clipboard_text == '' then
         hData = ffi.C.GetClipboardData(CF_TEXT);
         
         if hData ~= nil then
             local pData = ffi.C.GlobalLock(hData);
             
             if pData ~= nil then
-                -- Cast to char* and convert to Lua string
                 clipboard_text = ffi.string(ffi.cast('const char*', pData));
-                
-                -- Unlock the clipboard data
                 ffi.C.GlobalUnlock(hData);
+                
+                if clipper.debug_mode then
+                    print('[Clipper] Using ANSI text format (fallback)');
+                end
             end
         end
     end
@@ -209,13 +245,17 @@ ashita.events.register('command', 'clipper_command_cb', function (e)
     if args[2]:any('help', 'h', '?') then
         print('[Clipper] Commands:');
         print('  /paste - Paste clipboard text to chat');
-        print('  /paste say <text> - Paste with /say prefix');
-        print('  /paste party <text> - Paste with /p prefix');
+        print('  /paste say - Paste with /say prefix');
+        print('  /paste party - Paste with /p prefix');
         print('  /paste tell <name> - Paste with /tell <name> prefix');
+        print('  /paste shout - Paste with /sh prefix');
+        print('  /paste yell - Paste with /yell prefix');
         print('  /paste debug - Toggle debug mode');
+        print('  /paste unicode - Toggle Unicode/Japanese support (ON by default)');
         print('  /paste length <num> - Set max paste length (default: 200)');
         print('');
         print('Aliases: /clipper, /clip');
+        print('Note: Unicode mode supports Japanese and other multi-byte characters!');
         return;
     end
     
@@ -223,6 +263,13 @@ ashita.events.register('command', 'clipper_command_cb', function (e)
     if args[2]:any('debug') then
         clipper.debug_mode = not clipper.debug_mode;
         print(string.format('[Clipper] Debug mode: %s', clipper.debug_mode and 'ON' or 'OFF'));
+        return;
+    end
+    
+    -- Handle: /paste unicode
+    if args[2]:any('unicode', 'utf8', 'jp') then
+        clipper.unicode_mode = not clipper.unicode_mode;
+        print(string.format('[Clipper] Unicode mode: %s', clipper.unicode_mode and 'ON (supports Japanese/multi-byte)' or 'OFF (ASCII only)'));
         return;
     end
     
@@ -280,5 +327,7 @@ ashita.events.register('command', 'clipper_command_cb', function (e)
 end);
 
 -- Print loaded message
-print('[Clipper] Loaded! Use /paste or /clip to paste clipboard. Use /paste help for more info.');
+print('[Clipper] Loaded! Japanese/Unicode support enabled (Shift-JIS encoding).');
+print('[Clipper] Use /paste or /clip to paste clipboard. Type /paste help for info.');
+
 
