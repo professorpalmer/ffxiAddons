@@ -11,7 +11,7 @@ function ui.drawUI()
     imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 4 * scale, 4 * scale })
     imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { 4 * scale, 4 * scale })
     
-    if imgui.Begin('doubleredexclamationpoint', drep.visible, ImGuiWindowFlags_AlwaysAutoResize) then
+    if imgui.Begin('drep', drep.visible, ImGuiWindowFlags_AlwaysAutoResize) then
         imgui.Text(string.format('Target status: %s', mobStatus[targetStatus]))
         imgui.Text(string.format('Weapon: %s', currentWeapon))
         imgui.Text(string.format('Last WS used: %s', lastWeaponSkill))
@@ -239,10 +239,13 @@ function ui.update()
         targetStatus = mobStatus.normal
     end
 
-    if drep.prevTargetHP == -1 or drep.prevTargetID == -1 or utils.getTarget() ~= drep.prevTargetID then
-        currentWeapon = 'Unknown'
-        lastWeaponSkill = 'None'
-        utils.resetClickedButtons()
+    -- Only reset when not actively typing in an input field
+    if not imgui.IsAnyItemActive() then
+        if drep.prevTargetHP == -1 or drep.prevTargetID == -1 or utils.getTarget() ~= drep.prevTargetID then
+            currentWeapon = 'Unknown'
+            lastWeaponSkill = 'None'
+            utils.resetClickedButtons()
+        end
     end
 
     -- Safely get equipped weapon with error handling for zoning

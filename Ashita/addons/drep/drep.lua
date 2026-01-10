@@ -1,6 +1,6 @@
-addon.name = 'doubleredexclamationpoint'
+addon.name = 'drep'
 addon.version = '0.2'
-addon.author = 'Looney | Edits by Palmer (Zodiarchy @ Asura)'
+addon.author = 'Looney | Edited by Palmer (Zodiarchy @ Asura)'
 addon.desc = 'give me the fucking doubleredexclamationpoint'
 addon.link = 'https://github.com/loonsies/doubleredexclamationpoint'
 
@@ -55,9 +55,9 @@ ashita.events.register('packet_in', 'packet_in_cb', function (e)
 end)
 
 ashita.events.register('d3d_present', 'd3d_present_cb', function ()
-    ui.update()
+    -- Update target tracking BEFORE ui.update() to prevent race condition
     local currentTarget = utils.getTarget()
-    if currentTarget then
+    if currentTarget and currentTarget ~= 0 then
         local target = GetEntity(currentTarget)
         if target then
             if target.HPPercent ~= drep.prevTargetHP then
@@ -70,5 +70,11 @@ ashita.events.register('d3d_present', 'd3d_present_cb', function ()
             drep.prevTargetHP = -1
             drep.prevTargetID = -1
         end
+    else
+        drep.prevTargetHP = -1
+        drep.prevTargetID = -1
     end
+    
+    ui.update()
 end)
+

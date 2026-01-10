@@ -1,4 +1,4 @@
-ashita v4 helper for proccing in abyssea
+ashita v4 helper for proccing in abyssea (drep)
 
 ## Features
 - Weapon skill management for various weapon types
