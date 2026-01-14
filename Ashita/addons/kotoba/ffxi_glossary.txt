@@ -1,0 +1,665 @@
+# Kotoba Community Glossary
+# Format: Japanese|English
+# Lines starting with # are comments
+# Hot-reloads automatically - no need to restart translator!
+#
+# Based on FFXIclopedia Dictionary of Terms and Slang
+# https://ffxiclopedia.fandom.com/wiki/Final_Fantasy_XI_Dictionary_of_Terms_and_Slang
+
+# ============================================================================
+# SYMBOLS & NUMBERS
+# ============================================================================
+あと|remaining
+後|left
+
+# ============================================================================
+# COMMON CHAT EXPRESSIONS
+# ============================================================================
+わらい|lol
+笑|lol
+w|lol
+ww|lol
+www|lmao
+
+# ============================================================================
+# AREA NICKNAMES (Japanese)
+# ============================================================================
+# Note: Single kanji removed to avoid conflicts with day-of-week
+# Use full names: ロマーヴ|Ro'Maeve instead
+海|Sea
+空|Sky
+
+# ============================================================================
+# JOB ABILITIES & COMBOS
+# ============================================================================
+不意だま|SATA
+不意打ち|Sneak Attack
+だまし討ち|Trick Attack
+連携|Skillchain
+遠隔|ranged attack
+
+# ============================================================================
+# COMMON ABBREVIATIONS
+# ============================================================================
+募|LFG
+募集|recruiting
+参加|join
+待って|wait
+行く|go
+行こ|let's go
+やる|do
+する|do
+
+# ============================================================================
+# ENDGAME & ACTIVITIES
+# ============================================================================
+# (Already in built-in glossary, but you can override here)
+# ソーティ|Sortie
+# オデシー|Odyssey
+# アンバス|Ambu
+
+# ============================================================================
+# WEAPONS & GEAR
+# ============================================================================
+エーベル|Aeonic
+アレキ|Alexandrite
+レリック|Relic
+エンピリアン|Empyrean
+ミシック|Mythic
+
+# ============================================================================
+# COMMON ITEMS
+# ============================================================================
+ポーション|Potion
+エーテル|Ether
+エリクサー|Elixir
+薬|medicine
+
+# ============================================================================
+# MONSTERS & ENEMIES
+# ============================================================================
+骨|Skeleton
+蟹|Crab
+ゴブリン|Goblin
+ゴブ|Gob
+オーク|Orc
+ヤグード|Yagudo
+
+# ============================================================================
+# STATUS & CONDITIONS
+# ============================================================================
+毒|Poison
+麻痺|Paralyze
+沈黙|Silence
+暗闇|Blind
+スロウ|Slow
+
+# ============================================================================
+# DIRECTIONS & LOCATIONS
+# ============================================================================
+こっち|over here
+あっち|over there
+そっち|there
+どこ|where
+ここ|here
+
+# ============================================================================
+# PARTY & GROUP
+# ============================================================================
+パーティー|party
+アライアンス|alliance
+メンバー|member
+リーダー|leader
+
+# ============================================================================
+# COMMON REQUESTS
+# ============================================================================
+手伝って|help me
+助けて|help
+教えて|teach me
+見せて|show me
+ください|please give
+
+# ============================================================================
+# TIME EXPRESSIONS
+# ============================================================================
+すぐ|right now
+今すぐ|immediately
+ちょっと|just a sec
+少し|a bit
+しばらく|a while
+
+# ============================================================================
+# AFFIRMATIONS & NEGATIONS
+# ============================================================================
+はい|yes
+うん|yeah
+いいえ|no
+ううん|nope
+だめ|no good
+いいよ|sure
+おっけー|ok
+
+# ============================================================================
+# EXPANDED ENDGAME CONTENT
+# ============================================================================
+デュナミス|Dynamis
+ダイナミス|Dynamis
+Diver|Dynamis Divergence
+Divergence|Dynamis Divergence
+ダイバージェンス|Dynamis Divergence
+リンバス|Limbus
+Temenos|Temenos
+テメナス|Temenos
+Apollyon|Apollyon
+アポリオン|Apollyon
+サルベージ|Salvage
+ナイズル|Nyzul
+アサルト|Assault
+ビシージ|Besieged
+カンパニエ|Campaign
+ウォンテッド|Wanted
+ヴォイドウォッチ|Voidwatch
+ヴォイド|Void
+ドメイン|Domain
+インカージョン|Incursion
+シージ|Skirmish
+デルヴ|Delve
+ヴァグレリー|Vagary
+Vagary|Vagary
+Begary|Vagary
+
+# ============================================================================
+# NOTORIOUS MONSTERS
+# ============================================================================
+HNM|HNM
+ノートリアスモンスター|NM
+NM|NM
+リザード|Lizard
+キング|King
+クイーン|Queen
+キマイラ|Chimera
+ドラゴン|Dragon
+ワイバーン|Wyvern
+ティアマット|Tiamat
+ヨルムンガンド|Jormungand
+アダマンタス|Adamantoise
+ファヴニル|Fafnir
+ニーズヘッグ|Nidhogg
+ベヒーモス|Behemoth
+シムルグ|Simurgh
+
+# ============================================================================
+# NATIONS & CITIES (Japanese)
+# ============================================================================
+サンドリア|San d'Oria
+バストゥーク|Bastok
+ウィンダス|Windurst
+ジュノ|Jeuno
+ノーグ|Norg
+ラバオ|Rabao
+カザム|Kazham
+自国|home nation
+他国|foreign nation
+
+# ============================================================================
+# AREAS & ZONES
+# ============================================================================
+ボスディン|Beaucedine
+ザルカバード|Xarcabard
+ル・オン|Ru'Oan
+ウルガラン|Uleguerand
+アットワ|Attohwa
+グスタベルグ|Gustaberg
+ロンフォール|Ronfaure
+サルタバルタ|Sarutabaruta
+バルクルム|Valkurm
+コンシュタット|Konschtat
+タロンギ|Tahrongi
+パシュハウ|Pashhow
+クフィム|Qufim
+ベヒーモスの縄張り|Behemoth's Dominion
+ジャグナー|Jugner
+
+# ============================================================================
+# MISSION ABBREVIATIONS (Japanese aware)
+# ============================================================================
+ミッション|mission
+クエスト|quest
+国ミッション|nation mission
+ジラート|Zilart
+プロマシア|Promathia
+アトルガン|Aht Urhgan
+女神|Goddess
+アドゥリン|Adoulin
+ラプソディ|Rhapsody
+
+# ============================================================================
+# BATTLE CONTENT (Japanese terms)
+# ============================================================================
+バトルフィールド|battlefield
+BCNM|BCNM
+ENM|ENM
+オーブ|orb
+だいじなもの|key item
+キーアイテム|key item
+トリガー|trigger
+抽選|lottery
+湧き|spawn
+リポップ|repop
+
+# ============================================================================
+# PARTY ROLES & RECRUITMENT (More comprehensive)
+# ============================================================================
+タンク|tank
+盾|tank
+アタッカー|attacker
+前衛|DD
+後衛|support
+ヒーラー|healer
+回復|healing
+補助|support
+強化|buff
+弱体|debuff
+釣り|pulling
+釣り役|puller
+リーダー|leader
+メンバー|member
+野良|PUG
+固定|static party
+レベル上げ|leveling
+経験値|exp
+メリポ|merit points
+リミット|limit break
+限界|limit break
+
+# ============================================================================
+# COMBAT TERMS (Japanese)
+# ============================================================================
+攻撃|attack
+防御|defense
+回避|evasion
+魔法|magic
+魔法攻撃|magic attack
+魔法防御|magic defense
+命中|accuracy
+クリティカル|critical
+クリ|crit
+ダメージ|damage
+ダメ|dmg
+ヘイト|hate
+敵視|enmity
+挑発|provoke
+連携|skillchain
+マジックバースト|magic burst
+マジバ|MB
+ウェポンスキル|weapon skill
+WS|WS
+アビリティ|ability
+アビ|ability
+特殊技|special attack
+範囲|AoE
+全体|AoE
+
+# ============================================================================
+# STATUS EFFECTS (Comprehensive)
+# ============================================================================
+リジェネ|Regen
+リフレシュ|Refresh
+ヘイスト|Haste
+プロテス|Protect
+シェル|Shell
+ストンスキン|Stoneskin
+ブリンク|Blink
+空蝉|Utsusemi
+スニーク|Sneak
+インビジ|Invisible
+透明|Invisible
+リレイズ|Reraise
+レイズ|Raise
+テレポ|Teleport
+デジョン|Warp
+リトレース|Retrace
+バインド|Bind
+グラビデ|Gravity
+スリプル|Sleep
+睡眠|Sleep
+スタン|Stun
+石化|Petrify
+恐怖|Terror
+静寂|Silence
+アムネジア|Amnesia
+暗闇|Blind
+麻痺|Paralyze
+スロウ|Slow
+毒|Poison
+病気|Disease
+呪い|Curse
+
+# ============================================================================
+# ITEMS & EQUIPMENT (More comprehensive)
+# ============================================================================
+武器|weapon
+防具|armor
+アクセサリー|accessory
+アクセ|accessory
+指輪|ring
+首|neck
+耳|earring
+腰|belt
+背|back
+矢弾|ammo
+盾|shield
+片手剣|sword
+両手剣|greatsword
+片手斧|axe
+両手斧|greataxe
+両手鎌|scythe
+両手槍|polearm
+片手刀|katana
+両手刀|great katana
+両手棍|staff
+片手棍|club
+格闘|hand-to-hand
+短剣|dagger
+弓|bow
+銃|gun
+投てき|throwing
+楽器|instrument
+レリック|Relic
+ミシック|Mythic
+エンピリアン|Empyrean
+エーオニック|Aeonic
+AF|Artifact
+AF2|Relic Armor
+レリック防具|Relic Armor
+
+# ============================================================================
+# CRAFTING (Japanese)
+# ============================================================================
+合成|synthesis
+錬金術|Alchemy
+調理|Cooking
+鍛冶|Smithing
+彫金|Goldsmithing
+裁縫|Clothcraft
+革細工|Leathercraft
+骨細工|Bonecraft
+木工|Woodworking
+素材|materials
+クリスタル|crystal
+HQ|HQ
+NQ|NQ
+
+# ============================================================================
+# MONSTERS & FAMILIES (Japanese)
+# ============================================================================
+スケルトン|Skeleton
+ゾンビ|Zombie
+ゴースト|Ghost
+ワイト|Wight
+クゥダフ|Quadav
+ヤグード|Yagudo
+オーク|Orc
+ゴブリン|Goblin
+コボルト|Kobold
+サハギン|Sahagin
+トンベリ|Tonberry
+インプ|Imp
+デーモン|Demon
+ドール|Doll
+鳥|Bird
+トカゲ|Lizard
+リザード|Lizard
+クロウラー|Crawler
+蜘蛛|Spider
+蠍|Scorpion
+蜂|Bee
+蝙蝠|Bat
+コウモリ|Bat
+マンドラゴラ|Mandragora
+マンドラ|Mandragora
+サボテン|Cactuar
+キノコ|Funguar
+スライム|Slime
+ウーズ|Ooze
+エレメンタル|Elemental
+精霊|Elemental
+
+# ============================================================================
+# MAGIC TYPES (Japanese)
+# ============================================================================
+白魔法|white magic
+黒魔法|black magic
+精霊魔法|elemental magic
+暗黒魔法|dark magic
+強化魔法|enhancing magic
+弱体魔法|enfeebling magic
+回復魔法|healing magic
+神聖魔法|divine magic
+忍術|ninjutsu
+歌|song
+踊り|dance
+
+# ============================================================================
+# ELEMENTS (Japanese)
+# ============================================================================
+火|Fire
+氷|Ice
+風|Wind
+土|Earth
+雷|Thunder
+水|Water
+光|Light
+闇|Dark
+炎|Fire
+属性|element
+
+# ============================================================================
+# NUMBERS & QUANTITIES (Context)
+# ============================================================================
+レベル|level
+Lv|level
+経験値|experience
+人|people
+名|people
+体|unit
+個|pieces
+枚|sheets
+本|sticks
+匹|creatures
+セット|set
+スタック|stack
+ダース|dozen
+
+# ============================================================================
+# TIME EXPRESSIONS (More comprehensive)
+# ============================================================================
+今|now
+今から|now
+すぐ|right now
+今すぐ|immediately
+後|later
+あと|later
+後で|later
+明日|tomorrow
+昨日|yesterday
+今日|today
+夜|night
+朝|morning
+昼|day
+分|minute
+時間|hour
+秒|second
+ちょっと|a bit
+少し|a little
+しばらく|a while
+長い|long time
+待って|wait
+まって|wait
+急いで|hurry
+Mon|Monday
+Tue|Tuesday
+Wed|Wednesday
+Thu|Thursday
+Fri|Friday
+Sat|Saturday
+Sun|Sunday
+
+# ============================================================================
+# AUCTION HOUSE & ECONOMY
+# ============================================================================
+オークション|Auction House
+AH|AH
+売る|sell
+買う|buy
+価格|price
+相場|market price
+ギル|gil
+# 金|gil  # Removed: conflicts with Friday (金曜日)
+高い|expensive
+安い|cheap
+バザー|bazaar
+倉庫|mule
+在庫|stock
+
+# ============================================================================
+# LINKSHELL & SOCIAL
+# ============================================================================
+リンクシェル|linkshell
+LS|LS
+フレンド|friend
+フレ|friend
+パーティー|party
+PT|PT
+アライアンス|alliance
+アラ|alliance
+ギルド|guild
+仲間|companion
+友達|friend
+
+# ============================================================================
+# DIRECTIONS & NAVIGATION
+# ============================================================================
+北|north
+南|south
+東|east
+西|west
+上|up
+下|down
+左|left
+右|right
+前|front
+後ろ|back
+近く|nearby
+遠い|far
+中|inside
+外|outside
+入口|entrance
+出口|exit
+
+# ============================================================================
+# ACTIONS & COMMANDS (Comprehensive)
+# ============================================================================
+行く|go
+来る|come
+待つ|wait
+やる|do
+する|do
+殺す|kill
+狩る|hunt
+倒す|defeat
+逃げる|escape
+走る|run
+歩く|walk
+休む|rest
+寝る|sleep
+起きる|wake
+見る|look
+探す|search
+見つける|find
+取る|take
+拾う|pick up
+捨てる|throw away
+使う|use
+装備|equip
+外す|remove
+
+# ============================================================================
+# QUESTIONS & RESPONSES (More)
+# ============================================================================
+何|what
+誰|who
+どこ|where
+いつ|when
+なぜ|why
+どう|how
+どれ|which
+いくつ|how many
+いくら|how much
+大丈夫|okay
+問題ない|no problem
+了解|roger
+わかりました|understood
+すみません|excuse me
+ごめんね|sorry
+ありがとうございます|thank you
+どういたしまして|you're welcome
+お疲れ様|good work
+頑張って|good luck
+気をつけて|be careful
+
+# ============================================================================
+# COMMON VERBS (Chat context)
+# ============================================================================
+教えて|teach me
+教える|teach
+見せて|show me
+貸して|lend me
+送って|send
+渡して|give me
+ちょうだい|give me
+欲しい|want
+必要|need
+いらない|don't need
+できる|can do
+できない|cannot
+知ってる|know
+知らない|don't know
+わかる|understand
+わからない|don't understand
+
+# ============================================================================
+# EMOTES & REACTIONS (Comprehensive)
+# ============================================================================
+笑|lol
+草|lmao
+ワロタ|lmao
+爆笑|rofl
+クソワロ|lmfao
+やばい|sick
+すごい|amazing
+かっこいい|cool
+強い|strong
+弱い|weak
+えぐい|insane
+うわ|whoa
+おお|ooh
+へー|huh
+なるほど|I see
+マジ|seriously
+ガチ|for real
+うそ|no way
+本当|really
+確かに|indeed
+
+# ============================================================================
+# YOUR CUSTOM TERMS BELOW
+# ============================================================================
+# Add your linkshell's slang, server-specific terms, player nicknames, etc.
+# Examples:
+# あいつ|that guy
+# こいつ|this guy
+# あの人|that person
+
+
