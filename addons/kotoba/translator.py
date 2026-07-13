@@ -44,11 +44,7 @@ QUEUE_FILE = SCRIPT_DIR / "translation_queue.txt"
 RESULTS_FILE = SCRIPT_DIR / "translation_results.txt"
 COMMUNITY_GLOSSARY_FILE = SCRIPT_DIR / "ffxi_glossary.txt"
 SUGGESTED_TERMS_FILE = SCRIPT_DIR / "suggested_terms.log"
-HEARTBEAT_FILE = SCRIPT_DIR / "heartbeat.txt"
 DB_FILE = SCRIPT_DIR / "translations.db"
-
-# Auto-shutdown: if no heartbeat for this many seconds, exit
-HEARTBEAT_TIMEOUT = 30
 
 # Defaults
 LLM_API_KEY = None
@@ -894,18 +890,6 @@ def create_example_glossary():
         except Exception as e:
             print(f"[Kotoba Translator] Could not create example glossary: {e}")
 
-def check_heartbeat():
-    """Check if the game addon is still alive via heartbeat file.
-    Returns True if alive, False if we should shut down."""
-    if not HEARTBEAT_FILE.exists():
-        return True
-    try:
-        mtime = HEARTBEAT_FILE.stat().st_mtime
-        age = time.time() - mtime
-        return age < HEARTBEAT_TIMEOUT
-    except Exception:
-        return True
-
 # ============================================================================
 # MAIN
 # ============================================================================
@@ -921,7 +905,6 @@ def main():
     print(f"  Suggestions:   {SUGGESTED_TERMS_FILE}")
     print(f"  SQLite DB:     {DB_FILE}")
     print(f"  LLM:           {LLM_MODEL} @ {LLM_BASE_URL}")
-    print(f"  Auto-shutdown: {HEARTBEAT_TIMEOUT}s after game disconnect")
     print("=" * 60)
     print("  Features:")
     print("    - 500+ built-in FFXI terms")
@@ -930,7 +913,6 @@ def main():
     print("    - LLM-powered natural translation")
     print("    - Untranslated term detection")
     print("    - Casual tone post-processing")
-    print("    - Auto-shutdown when game disconnects")
     print("=" * 60)
     print("\nPress Ctrl+C to stop and see stats\n")
 
@@ -948,7 +930,6 @@ def main():
         print(f"[Kotoba Translator] Loaded {len(community_terms)} community terms\n")
 
     last_stats_print = time.time()
-    last_heartbeat_check = time.time()
 
     try:
         while True:
@@ -957,18 +938,6 @@ def main():
             if time.time() - last_stats_print > 300:
                 print_stats()
                 last_stats_print = time.time()
-
-            # Check heartbeat every 5 seconds
-            if time.time() - last_heartbeat_check > 5:
-                last_heartbeat_check = time.time()
-                if not check_heartbeat():
-                    print("\n[Kotoba Translator] Game disconnected — shutting down.")
-                    print_stats()
-                    try:
-                        HEARTBEAT_FILE.unlink()
-                    except Exception:
-                        pass
-                    sys.exit(0)
 
             time.sleep(0.5)
 
