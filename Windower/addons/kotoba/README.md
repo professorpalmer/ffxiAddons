@@ -1,72 +1,76 @@
-# Kotoba for Windower 4 (Wave 2)
+# Kotoba for Windower 4
 
-Multi-language FFXI chat assistant with LLM translation (DeepSeek / OpenAI-compatible), SQLite durable cache, and an on-screen control panel.
+FFXI chat translation assistant: LLM backend (DeepSeek / OpenAI-compatible / OpenRouter / Ollama), SQLite cache, FFXI glossary, and an on-screen panel.
 
-Core behavior matches **Ashita Kotoba v2.0** (auto-translate, queue/results/heartbeat IPC, headless `pythonw` spawn). Target languages: **ja / en / es / fr / de / ko / zh**.
+**Incoming auto-translate:** Japanese → English  
+**Outbound compose:** ja / en / es / fr / de / ko / zh (picker)
+
+Core translator matches **Ashita Kotoba** (`translator.py` is shared — keep in sync with `tools/sync_kotoba_shared.ps1`).
 
 ## Install
 
-1. Copy this folder to your Windower addons directory, e.g. `C:\Windower\addons\kotoba\`  
-   (or use this repo path if you already load Windower addons from here).
+1. Copy `Windower/addons/kotoba` to your Windower addons folder, e.g.  
+   `<YourWindowerInstall>\addons\kotoba\`
 2. Double-click **`install.bat`** — installs `httpx`, creates `translator_config.txt` from the example if missing, builds the seed DB.
-3. Edit **`translator_config.txt`** and set your LLM API key / base URL / model.  
-   Never commit that file (it is gitignored).
+3. Edit **`translator_config.txt`** and set:
+   ```
+   LLM_API_KEY=your_key_here
+   LLM_BASE_URL=https://api.deepseek.com/v1
+   LLM_MODEL=deepseek-chat
+   ```
+   Never commit that file (gitignored).
 4. In-game: `//lua load kotoba`  
-   The addon auto-starts `pythonw translator.py` headlessly and touches `heartbeat.txt` so the translator exits when you leave.
+   The addon checks your config, then auto-starts `pythonw translator.py` (falls back to `python`). Heartbeat shuts the translator down when you leave.
 
-Manual translator console (optional): run `start_translator.bat`.
+Optional visible console: run `start_translator.bat`.
 
-## On-screen panel
+### Troubleshooting
 
-Title: **Kotoba v2.0 - Translation Assistant**
+| Problem | Fix |
+|---------|-----|
+| No translations | Confirm `translator_config.txt` has a real `LLM_API_KEY` (not `your_api_key_here`) |
+| `python` / `pythonw` missing | Install Python 3.8+ with **Add to PATH**, re-run `install.bat` |
+| `ModuleNotFoundError: httpx` | `pip install -r requirements.txt` |
+| Stuck keys after typing in panel | `//lua unload kotoba` (forces `keyboard_blockinput 0`) |
+| Stale translator | Delete `translator.lock` and reload, or run `start_translator.bat` |
 
-| Control | Click action |
-|---------|--------------|
-| `[x] Auto-Translate Incoming` | Toggle auto-translate |
-| `Language: …` | Cycle ja → en → es → fr → de → ko → zh |
-| `Compose: …` | Focus compose field — type into Kotoba (caret `_`) |
-| `[Translate & Send]` | Translate compose → `settings.language` and send |
-| `[Copy]` / `[Paste]` / `[Clear]` | Clipboard helpers + clear compose |
-| `Send to: …` | Cycle say / party / tell / ls / ls2 / shout / yell |
-| `Tell target: …` | Focus name field — type into Kotoba, Enter to lock |
+## On-screen panel (v2.1)
 
-**Panel typing (Windower 4 reality):** There is no ImGui / `ui.edit` on Windower 4 (`ui.edit` is Windower 5). `texts` cannot take keyboard focus. Kotoba uses the proven W4 pattern (same idea as XIVCrossbar’s env chooser):
+| Control | Action |
+|---------|--------|
+| Auto-translate checkbox | Toggle JP→EN for incoming chat |
+| **Language** dropdown | Pick outbound target language |
+| **MESSAGE** field | Click → type into Kotoba (keys isolated from the game) |
+| **Send / Copy / Paste / Clear** | Translate+send, clipboard, clear compose |
+| **Send to** dropdown | say / party / tell / ls / ls2 / shout / yell |
+| **TELL TARGET** | Shown when channel is Tell — click to type name |
 
-1. Click **Compose** or **Tell target** → Kotoba opens chat briefly so key-blocking works ([Windower/Issues#788](https://github.com/Windower/Issues/issues/788))
-2. Keys are captured into an internal buffer and drawn on the panel (`Compose> …_`) — they do **not** go into game chat
-3. **Enter** locks the field · **Esc** cancels · then click **[Translate & Send]**
+**Typing (Windower 4):** There is no ImGui on W4. Kotoba uses:
 
-`//kb compose` / `//kb tell` still work as fallbacks.
+1. `keyboard_blockinput 1` while editing  
+2. Temporary `%key` binds → `//kotoba _k …` so keys never hit the game  
+3. **Enter** locks the field · **Esc** cancels (also closes open dropdowns)
 
-See `UI_RESEARCH.md` for the addon/UI landscape (GUI-lib, BluGuide, ruptchat, W5 core.ui).
+Drag the dark panel background to reposition (saved).
 
-Drag the panel by the title/background to reposition (position is saved).
-
-**Translate & Send / `//kb t` / `//kb send` language rules:** compose text is treated as **English** when the target is not `en`; when the target is `en`, source is **Japanese** (incoming-style).
+Outbound language rules: compose is treated as **English** unless target is `en` (then source is **Japanese**).
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `//kb` / `//kotoba` | Toggle window visibility |
-| `//kb toggle` | Same as above |
-| `//kb on` / `//kb off` | Enable / disable auto-translate |
-| `//kb auto` | Toggle auto-translate |
-| `//kb status` | Show settings + cache counts |
-| `//kb t <text>` | Translate to `settings.language` (source en, or ja if target en) |
+| `//kb` / `//kotoba` | Toggle panel |
+| `//kb on` / `//kb off` / `//kb auto` | Auto-translate |
+| `//kb status` | Settings + cache counts |
+| `//kb t <text>` | Translate to selected language |
 | `//kb te <text>` | Translate JA → EN |
-| `//kb send <channel> <text>` | Translate to `settings.language` and send |
-| `//kb compose <text>` | Set compose buffer (panel preview) |
-| `//kb channel <name>` | Set default send channel |
-| `//kb cyclechannel` | Cycle send channel |
-| `//kb lang <ja\|en\|es\|fr\|de\|ko\|zh>` | Set target language |
-| `//kb cyclelang` | Cycle target language |
-| `//kb tell <name>` | Set tell target for panel Send |
-| `//kb clear` | Clear in-memory translation cache |
-| `//kb debug` | Toggle debug mode |
-| `//kb help` | Help |
-
-Incoming Japanese chat is auto-queued when auto-translate is on; English results print as `[Kotoba] …` in game chat.
+| `//kb send <channel> <text>` | Translate and send |
+| `//kb compose <text>` | Set compose buffer |
+| `//kb channel <name>` / `//kb cyclechannel` | Send channel |
+| `//kb lang <code>` / `//kb cyclelang` | Target language |
+| `//kb tell <name>` | Tell target |
+| `//kb clear` | Clear in-memory cache |
+| `//kb debug` / `//kb help` | Debug / help |
 
 ## How it works
 

@@ -1,225 +1,76 @@
-# Kotoba v2.0 - Multi-Language Chat Assistant (LLM Edition)
+# Kotoba for Ashita (v2.0.1)
 
-**Real-time Japanese ⇄ English translation for FFXI using an LLM (DeepSeek/OpenAI-compatible) API + SQLite durable cache**
+**Japanese → English auto-translate for FFXI**, plus outbound compose with a language picker (ja / en / es / fr / de / ko / zh). LLM backend (DeepSeek / OpenAI-compatible / OpenRouter / Ollama) + SQLite cache + FFXI glossary.
 
-## What is Kotoba?
+Windower users: see `Windower/addons/kotoba/` — same `translator.py` (sync with `tools/sync_kotoba_shared.ps1`).
 
-Kotoba is an Ashita addon that automatically translates Japanese messages in FFXI chat to English using an external Python translator. It uses a fast, reliable file-based system (inspired by Sendoria) with an **LLM backend** (any OpenAI-compatible API — DeepSeek, OpenAI, local Ollama, etc.) enhanced by a custom FFXI terminology glossary for natural, gaming-appropriate translations. Translations are cached in a durable **SQLite database (`translations.db`)** so repeated phrases are retrieved instantly — even across restarts.
+## Setup
+
+1. Copy this folder to `<YourAshitaInstall>\addons\kotoba\`  
+   (if you cloned `ffxiAddons`, copy from `Ashita/addons/kotoba`)
+2. Double-click **`install.bat`** — installs `httpx` from `requirements.txt`, creates config, builds seed DB
+3. Edit **`translator_config.txt`**:
+   ```
+   LLM_API_KEY=your_key_here
+   LLM_BASE_URL=https://api.deepseek.com/v1
+   LLM_MODEL=deepseek-chat
+   ```
+   Never commit that file (gitignored).
+4. In FFXI: `/addon load kotoba` → `/kotoba`  
+   The addon checks your config, then auto-starts `pythonw translator.py` (falls back to `python`).  
+   Optional visible console: `start_translator.bat`.
+
+Seed DB is built by `install.bat` / `start_translator.bat` — not on bare first load.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| No translations | Set a real `LLM_API_KEY` (not `your_api_key_here`) |
+| Chat says config missing | Run `install.bat` in the kotoba folder |
+| `ModuleNotFoundError: httpx` | `pip install -r requirements.txt` |
+| Prefer a console | Run `start_translator.bat` (addon auto-start is the default) |
 
 ## Features
 
-- ✅ **Auto-Translate Incoming Messages** - Japanese → English automatically in game chat
-- ✅ **Manual Translation** - Type English → translate to Japanese for sending
-- ✅ **FFXI-Aware** - Recognizes **500+ FFXI terms** (jobs, endgame, monsters, items, areas, slang)
-- ✅ **Casual Tone** - "ソーティやる？" → "Wanna do Sortie?" (not stiff formal translation)
-- ✅ **Community Glossary** - Add your own terms in `ffxi_glossary.txt` (hot-reloads!)
-- ✅ **Smart Detection** - Automatically suggests missing glossary terms
-- ✅ **SQLite Durable Cache** - `translations.db` stores every translation for instant retrieval, even after restarts (normalized keys so `！`/`?` variants share hits)
-- ✅ **Warm Cache Seeding** - Run `build_seed_db.py` to pre-load common *full chat phrases* (glossary stays for preprocess only)
-- ✅ **Stats Tracking** - See cache hit rates, glossary usage, and more
-- ✅ **Non-Blocking** - Never freezes the game
-- ✅ **Reliable** - File-based system is bulletproof
-- ✅ **Any OpenAI-Compatible API** - Works with DeepSeek, OpenAI, local Ollama, LM Studio, and more
-
-## Setup (2 Minutes)
-
-### Step 1: One-Click Install (One-Time)
-1. Navigate to `C:\Ashita\addons\kotoba\`
-2. Double-click **`install.bat`** — installs Python dependencies (`httpx`) and sets up the environment
-
-### Step 2: Configure LLM API Key
-1. Copy the example config (install.bat does this automatically if missing):
-   ```
-   copy translator_config.example.txt translator_config.txt
-   ```
-2. Open `translator_config.txt` and replace `your_api_key_here` with your API key
-3. Set the API base URL and model name to match your provider (DeepSeek, OpenAI, OpenRouter, Ollama, etc.)
-4. `translator_config.txt` is gitignored — never commit keys
-
-### Step 3: Start Translating
-1. In FFXI: `/addon load kotoba` — the addon **auto-starts** the translator headlessly (`pythonw`)
-2. Optional: double-click **`start_translator.bat`** if you want a visible console / manual start
-3. When you leave the game (heartbeat goes stale ~30s), the translator **auto-shuts down**
-4. First run builds the seed database (`translations.db`) via `build_seed_db.py` if missing
-
-### Step 4: Use Kotoba In-Game
-```
-/addon load kotoba
-/kotoba
-```
-Enable the **"Auto-Translate Incoming"** checkbox and you're done!
-
-## How It Works
-
-```
-Japanese message arrives in game
-    ↓
-Kotoba writes to translation_queue.txt
-    ↓
-Python translator checks SQLite cache (translations.db)
-    ↓
-Cache hit? → Return instantly
-Cache miss? → Translate with LLM (DeepSeek/OpenAI-compatible) + FFXI glossary → store in cache
-    ↓
-Python translator writes to translation_results.txt
-    ↓
-Kotoba reads results → prints English translation to game chat
-    ↓
-Translation appears in ~1 second (instant on cache hit)!
-```
+- Auto-translate **incoming Japanese → English**
+- ImGui compose + language dropdown for outbound
+- 500+ FFXI glossary terms (`ffxi_glossary.txt`, hot-reloads)
+- SQLite durable cache (`translations.db`)
+- Heartbeat auto-shutdown when you leave the game
+- Suggested missing terms → `suggested_terms.log` (local only)
 
 ## Commands
 
-- `/kotoba` or `/kb` - Toggle window
-- `/kotoba help` - Show help
-- `/kotoba clear` - Clear message history
-- `/kotoba debug` - Toggle debug mode
+- `/kotoba` or `/kb` — Toggle window
+- `/kotoba help` — Help
+- `/kotoba clear` — Clear in-addon message history
+- `/kotoba debug` — Toggle debug mode
 
-## Translation Examples
-
-| Japanese | Old (stiff) | Kotoba (natural) |
-|----------|-------------|------------------|
-| ソーティやる？ | Are you going to do a sortie? | Wanna do Sortie? |
-| 今からオデシー行こ | Let's go to Odyssey now | Let's go Odyssey now |
-| 白魔募集中 | White mage recruiting | LFM WHM |
-| おつかれ！ | Thank you for your hard work! | gj! |
-| タンク欲しい | I want a tank | Want tank |
-| ヘイスト ください | Please give me haste | Haste pls |
-| ちょっと待って | Wait a moment | Wait a sec |
-| やばい、すごい！ | That is dangerous, amazing! | Sick, amazing! |
-| 手伝ってください | Please help me | Help pls |
-| メリポ行く？ | Are you going to go merit points? | Wanna go merit? |
-
-## Customizing Translations
-
-### Easy Way: Community Glossary (Recommended!)
-
-Edit `ffxi_glossary.txt` - changes apply **instantly** (no restart needed!):
+## How it works
 
 ```
-# Add your terms here (one per line)
-エーベル|Aeonic
-アレキ|Alexandrite
-メリポ|merit party
-倉庫|mule
-
-# Server-specific slang
-あいつ|that guy
-こっち|over here
-
-# Your linkshell's nicknames
-# Character names, etc.
+JP chat → kotoba.lua → translation_queue.txt
+                      → translator.py (+ translations.db / LLM)
+                      → translation_results.txt → game chat
 ```
 
-**Hot-reload**: Save the file, next translation uses new terms!
+## Custom glossary
 
-### Advanced Way: Edit Python Code
+Edit `ffxi_glossary.txt` (one `jp|en` per line). Changes apply on the next translation (mtime reload).
 
-Edit `translator.py` to modify built-in glossary:
+See `GLOSSARY_GUIDE.md` and `GLOSSARY_COVERAGE.md`.
 
-```python
-FFXI_GLOSSARY = {
-    'your_jp_term': 'your_translation',
-    # Add more here!
-}
-```
+## Examples
 
-Requires translator restart.
-
-## Missing Glossary Terms?
-
-Kotoba **automatically detects** terms that might need glossary entries!
-
-Check `suggested_terms.log` for:
-- Japanese characters remaining in translations
-- Terms that weren't translated properly
-- Suggestions for `ffxi_glossary.txt` additions
-
-**Example log entry:**
-```
-[2025-01-05 14:30:22] Japanese chars in translation
-  Original:    エーベル作りたい
-  Translation: Want to make エーベル
-  Suggest: Add to ffxi_glossary.txt: エーベル|<your_translation>
-```
-
-Then add to `ffxi_glossary.txt`:
-```
-エーベル|Aeonic
-```
-
-Next time it translates perfectly!
-
-## Translation Stats
-
-Press **Ctrl+C** in the translator window to see stats:
-- Total translations
-- Cache hit rate (higher = faster!)
-- Glossary terms used
-- Community glossary size
-- Uptime
-
-Or wait 5 minutes - stats print automatically!
-
-## Troubleshooting
-
-### "No translations appearing"
-- ✅ Make sure `start_translator.bat` is running
-- ✅ Check translator window for errors
-- ✅ Verify Python is in PATH: `python --version`
-
-### "ModuleNotFoundError: httpx"
-```
-pip install httpx
-```
-
-### "Could not load API key"
-- Check that `translator_config.txt` contains your API key
-- Format: `API_KEY=your_key_here`
-- Get a key from your LLM provider (DeepSeek, OpenAI, etc.) or run a local Ollama server
-
-### "Translation is slow"
-- First translation of new text: ~1 second (normal)
-- Cached translations: **instant** (served from `translations.db`)
-- Check stats - high cache hit rate = fast translations!
-- Run `build_seed_db.py` to warm the cache with common phrases
-
-## Translation Quality
-
-**Current**: LLM-powered translation (DeepSeek/OpenAI-compatible API)
-- 🏆 Natural, context-aware Japanese accuracy
-- 🗣️ Excellent context understanding for gaming slang
-- ✅ Enhanced with custom FFXI glossary (500+ terms)
-- ✅ Casual tone via LLM prompting
-- ⚡ Fast and reliable, with SQLite durable cache
-- 💰 Affordable with DeepSeek; free with local Ollama
-
-**Why LLM?**
-- Understands nuance and context ("やる？" → "Wanna do?" not "Will you do?")
-- Handles casual/informal MMO chat style naturally
-- Works with any OpenAI-compatible endpoint (DeepSeek, OpenAI, local Ollama, LM Studio, etc.)
-
-## Performance
-
-- **Memory**: ~50MB Python, ~10MB addon
-- **CPU**: Minimal (only active during translation)
-- **Disk**: Tiny temp files cleared automatically; `translations.db` cache grows with usage
-- **Game Impact**: Zero (file I/O is async)
-
-## Reference Guides
-
-- **`GLOSSARY_COVERAGE.md`** - **Complete term list (500+ terms!)** - See everything Kotoba knows!
-- **`GLOSSARY_GUIDE.md`** - Complete guide to customizing translations
-- **`FFXI_ABBREVIATIONS_REFERENCE.md`** - English FFXI slang decoder (what does "LFM for Dyna" mean?)
-- **`ffxi_glossary.txt`** - Your editable glossary (500+ Japanese terms pre-loaded!)
+| Japanese | Kotoba |
+|----------|--------|
+| ソーティやる？ | Wanna do Sortie? |
+| 白魔募集中 | LFM WHM |
+| おつかれ！ | gj! |
 
 ## Credits
 
-- **Architecture**: Inspired by [Sendoria](https://github.com/trevorssf/Sendoria)'s reliable file-based approach
-- **Translation**: LLM-powered translation (DeepSeek/OpenAI-compatible) + custom FFXI glossary (500+ terms)
-- **FFXI Terms**: [FFXIclopedia Dictionary](https://ffxiclopedia.fandom.com/wiki/Final_Fantasy_XI_Dictionary_of_Terms_and_Slang)
-- **Author**: Zodiarchy @ Asura
-
----
-
-**Enjoy natural, fast translations in FFXI!** 🎉
+- Architecture inspired by [Sendoria](https://github.com/trevorssf/Sendoria)
+- FFXI terms: [FFXIclopedia Dictionary](https://ffxiclopedia.fandom.com/wiki/Final_Fantasy_XI_Dictionary_of_Terms_and_Slang)
+- Author: Zodiarchy @ Asura

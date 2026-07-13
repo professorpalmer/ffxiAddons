@@ -1,7 +1,7 @@
 @echo off
 title Kotoba Installer
 echo ============================================
-echo   KOTOBA INSTALLER - LLM Edition
+echo   KOTOBA INSTALLER - LLM Edition (Windower)
 echo ============================================
 echo.
 
@@ -19,16 +19,30 @@ if errorlevel 1 (
 )
 for /f "tokens=2 delims= " %%v in ('python --version 2^>^&1') do set PYVER=%%v
 echo   Python %PYVER% found.
+where pythonw >nul 2>&1
+if errorlevel 1 (
+    echo   WARNING: pythonw not found — addon will fall back to python.exe
+) else (
+    echo   pythonw found (headless spawn OK).
+)
 echo.
 
-REM Install httpx
-echo [2/4] Installing httpx...
-pip install httpx >nul 2>&1
-if errorlevel 1 (
-    echo   WARNING: pip install failed. You may need to run manually: pip install httpx
+REM Install httpx from requirements.txt
+echo [2/4] Installing Python deps...
+if exist "requirements.txt" (
+    pip install -r requirements.txt
 ) else (
-    echo   httpx installed.
+    pip install "httpx>=0.27.0"
 )
+if errorlevel 1 (
+    echo.
+    echo ERROR: pip install failed.
+    echo Try: pip install -r requirements.txt
+    echo.
+    pause
+    exit /b 1
+)
+echo   Dependencies installed.
 echo.
 
 REM Create config from example if not exists
@@ -43,7 +57,7 @@ if not exist "translator_config.txt" (
         echo LLM_MODEL=deepseek-chat>> translator_config.txt
         echo   Created translator_config.txt
     )
-    echo   Edit translator_config.txt and add your LLM API key before starting.
+    echo   Edit translator_config.txt and set LLM_API_KEY before playing.
 ) else (
     echo   translator_config.txt already exists.
 )
@@ -52,6 +66,11 @@ echo.
 REM Build seed database
 echo [4/4] Building seed database...
 python build_seed_db.py
+if errorlevel 1 (
+    echo   WARNING: seed DB build failed — translations still work, just colder cache.
+) else (
+    echo   Seed database ready.
+)
 echo.
 
 echo ============================================
@@ -59,11 +78,13 @@ echo   INSTALL COMPLETE!
 echo ============================================
 echo.
 echo Next steps:
-echo   1. Edit translator_config.txt and add your LLM API key
-echo      (Get a free DeepSeek key at https://platform.deepseek.com/)
-echo   2. In FFXI (Windower): //lua load kotoba
+echo   1. Edit translator_config.txt — set LLM_API_KEY=...
+echo      (DeepSeek: https://platform.deepseek.com/  or OpenRouter / Ollama)
+echo   2. Copy this folder to: ^<YourWindowerInstall^>\addons\kotoba\
+echo      (if you are not already running from that path)
+echo   3. In FFXI: //lua load kotoba
 echo      (addon auto-starts translator.py via pythonw)
-echo   3. Optional: run start_translator.bat for a visible console
-echo   4. Type //kotoba or //kb in game for commands
+echo   4. Optional: run start_translator.bat for a visible console
+echo   5. Type //kotoba or //kb in game for commands / panel
 echo.
 pause
