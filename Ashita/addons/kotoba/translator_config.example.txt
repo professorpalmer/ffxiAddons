@@ -1,6 +1,11 @@
 # Kotoba Translator Configuration
 # LLM API settings (OpenAI-compatible)
-# Works with DeepSeek (default), OpenAI, or any OpenAI-compatible endpoint
+# Works with DeepSeek (default), OpenAI, OpenRouter, or any OpenAI-compatible endpoint
+#
+# Copy this file to translator_config.txt and add your key:
+#   copy translator_config.example.txt translator_config.txt
+#
+# Never commit translator_config.txt -- it is gitignored.
 
 LLM_API_KEY=your_api_key_here
 LLM_BASE_URL=https://api.deepseek.com/v1

@@ -31,13 +31,19 @@ if errorlevel 1 (
 )
 echo.
 
-REM Create config template if not exists
+REM Create config from example if not exists
 echo [3/4] Checking config...
 if not exist "translator_config.txt" (
-    echo LLM_API_KEY=your_api_key_here> translator_config.txt
-    echo LLM_BASE_URL=https://api.deepseek.com/v1>> translator_config.txt
-    echo LLM_MODEL=deepseek-chat>> translator_config.txt
-    echo   Created translator_config.txt
+    if exist "translator_config.example.txt" (
+        copy /Y "translator_config.example.txt" "translator_config.txt" >nul
+        echo   Created translator_config.txt from example.
+    ) else (
+        echo LLM_API_KEY=your_api_key_here> translator_config.txt
+        echo LLM_BASE_URL=https://api.deepseek.com/v1>> translator_config.txt
+        echo LLM_MODEL=deepseek-chat>> translator_config.txt
+        echo   Created translator_config.txt
+    )
+    echo   Edit translator_config.txt and add your LLM API key before starting.
 ) else (
     echo   translator_config.txt already exists.
 )

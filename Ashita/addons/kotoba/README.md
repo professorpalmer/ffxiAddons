@@ -14,8 +14,8 @@ Kotoba is an Ashita addon that automatically translates Japanese messages in FFX
 - ✅ **Casual Tone** - "ソーティやる？" → "Wanna do Sortie?" (not stiff formal translation)
 - ✅ **Community Glossary** - Add your own terms in `ffxi_glossary.txt` (hot-reloads!)
 - ✅ **Smart Detection** - Automatically suggests missing glossary terms
-- ✅ **SQLite Durable Cache** - `translations.db` stores every translation for instant retrieval, even after restarts
-- ✅ **Warm Cache Seeding** - Run `build_seed_db.py` to pre-load common phrases on first run
+- ✅ **SQLite Durable Cache** - `translations.db` stores every translation for instant retrieval, even after restarts (normalized keys so `！`/`?` variants share hits)
+- ✅ **Warm Cache Seeding** - Run `build_seed_db.py` to pre-load common *full chat phrases* (glossary stays for preprocess only)
 - ✅ **Stats Tracking** - See cache hit rates, glossary usage, and more
 - ✅ **Non-Blocking** - Never freezes the game
 - ✅ **Reliable** - File-based system is bulletproof
@@ -28,15 +28,19 @@ Kotoba is an Ashita addon that automatically translates Japanese messages in FFX
 2. Double-click **`install.bat`** — installs Python dependencies (`httpx`) and sets up the environment
 
 ### Step 2: Configure LLM API Key
-1. Open `C:\Ashita\addons\kotoba\translator_config.txt`
-2. Replace `YOUR_API_KEY_HERE` with your actual API key (DeepSeek, OpenAI, or any OpenAI-compatible provider)
-3. Set the API base URL and model name to match your provider (e.g. DeepSeek, OpenAI, or a local Ollama endpoint)
+1. Copy the example config (install.bat does this automatically if missing):
+   ```
+   copy translator_config.example.txt translator_config.txt
+   ```
+2. Open `translator_config.txt` and replace `your_api_key_here` with your API key
+3. Set the API base URL and model name to match your provider (DeepSeek, OpenAI, OpenRouter, Ollama, etc.)
+4. `translator_config.txt` is gitignored — never commit keys
 
-### Step 3: Start the Translator Service
-1. Double-click **`start_translator.bat`**
-2. First run will auto-install `httpx` and build the seed database (`translations.db`) via `build_seed_db.py`
-3. Leave the window open while playing FFXI
-4. You'll see a fancy startup banner! 🌸
+### Step 3: Start Translating
+1. In FFXI: `/addon load kotoba` — the addon **auto-starts** the translator headlessly (`pythonw`)
+2. Optional: double-click **`start_translator.bat`** if you want a visible console / manual start
+3. When you leave the game (heartbeat goes stale ~30s), the translator **auto-shuts down**
+4. First run builds the seed database (`translations.db`) via `build_seed_db.py` if missing
 
 ### Step 4: Use Kotoba In-Game
 ```
