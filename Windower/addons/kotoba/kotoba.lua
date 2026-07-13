@@ -9,7 +9,7 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.1.0'
+_addon.version = '2.1.1'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
@@ -542,6 +542,14 @@ local function clean_incoming_text(text)
     end
 
     local cleaned = text
+    -- If Windower handed us raw SJIS bytes, recover UTF-8 before anything else
+    if not has_japanese(cleaned) and windower.from_shift_jis then
+        local ok, converted = pcall(windower.from_shift_jis, cleaned)
+        if ok and converted and has_japanese(converted) then
+            cleaned = converted
+        end
+    end
+
     if windower.convert_auto_trans then
         cleaned = windower.convert_auto_trans(cleaned)
     end

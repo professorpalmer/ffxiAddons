@@ -1,5 +1,5 @@
 --[[
-    Kotoba UI panel v2.1.0 — polished Windower 4 texts chrome
+    Kotoba UI panel v2.1.1 — polished Windower 4 texts chrome
 
     - Dropdowns for Language / Send-to (not click-to-cycle)
     - Clear shaded input fields
@@ -194,7 +194,7 @@ local function ensure_created()
         size = 13, bold = true, r = 255, g = 214, b = 90,
     })
 
-    elements.subtitle = make_text('v2.1.0  ·  Translation', {
+    elements.subtitle = make_text('v2.1.1  ·  Translation', {
         x = x + 78, y = y + 7,
         size = 10, r = 140, g = 155, b = 180,
     })

@@ -159,15 +159,18 @@ Hard rules:
 - Output ONE translation only — no quotes, no options, no "or", no explanations
 - Do NOT write preambles like "Here's the translation:" or "Natural English:"
 - Do NOT echo the source language when a different target was requested
-- Keep it short and casual, like real MMO chat in the TARGET language
-- Preserve job abbreviations (WHM, BLM, PLD, Sortie, Odyssey, etc.) as players write them
-- If target is English: casual EN gaming slang (wanna, LFM, ty, np, gj)
+- Translate the FULL meaning — gil amounts, zone names, and requests must survive
+- Do NOT collapse unrelated requests into "LFM WHM" / "LFM …" unless the source is actually recruiting that job
+- Keep casual MMO tone in the TARGET language, but stay faithful to the content
+- Preserve job abbreviations (WHM, BLM, PLD, Sortie, Odyssey, Dynamis, etc.) as players write them
+- If target is English: casual EN gaming slang when it fits (wanna, ty, np, gj) — never invent LFM
 - If target is Japanese: natural casual Japanese chat (です/ます optional; やる？行こ is fine)
 - If target is Spanish/French/German/Korean/Chinese: casual chat tone in that language only
 
 Examples:
 JA→EN  ソーティやる？  →  Wanna do Sortie?
 JA→EN  白魔募集中  →  LFM WHM
+JA→EN  Dサンド突入補助50万ギルでお願いできませんか  →  Can I get Dynamis San d'Oria entry help for 500k gil?
 EN→JA  hey what are you up to?  →  今何してる？
 EN→JA  wanna do Sortie?  →  ソーティやる？
 EN→ES  ready?  →  ¿listo?
@@ -351,6 +354,32 @@ def get_cache_size():
         return cursor.fetchone()[0]
     finally:
         conn.close()
+
+
+def purge_poisoned_cache():
+    """Remove mojibake sources and implausible LFM collapses from SQLite."""
+    if not DB_FILE.exists():
+        return 0
+    conn = sqlite3.connect(str(DB_FILE))
+    removed = 0
+    try:
+        rows = conn.execute(
+            "SELECT source_text, source_lang, target_lang, translated_text FROM translations"
+        ).fetchall()
+        for source_text, source_lang, target_lang, translated_text in rows:
+            if looks_mojibake(source_text) or translation_implausible(
+                source_text, translated_text, source_lang, target_lang
+            ):
+                conn.execute(
+                    "DELETE FROM translations WHERE source_text=? AND source_lang=? AND target_lang=?",
+                    (source_text, source_lang, target_lang),
+                )
+                removed += 1
+        if removed:
+            conn.commit()
+    finally:
+        conn.close()
+    return removed
 
 # ============================================================================
 # STATS
@@ -838,8 +867,87 @@ def postprocess_english(text):
         processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
     return processed
 
+def looks_mojibake(text):
+    """True if text looks like Shift-JIS misread as UTF-8 / other encoding damage."""
+    if not text:
+        return False
+    if '\ufffd' in text:
+        return True
+    cjk = sum(1 for ch in text if 0x3040 <= ord(ch) <= 0x9FFF or 0x3400 <= ord(ch) <= 0x4DBF)
+    high = sum(1 for ch in text if ord(ch) > 127)
+    # Non-ASCII but almost no real JP/CJK — classic mojibake for ja chat
+    if high >= 3 and cjk == 0:
+        return True
+    # Mixed private-use / rare planes with almost no kana/kanji
+    weird = sum(1 for ch in text if ord(ch) > 0xFFFF or (0x80 <= ord(ch) <= 0x9F))
+    if weird >= 1 and cjk <= 1 and high >= 4:
+        return True
+    return False
+
+
+_LFM_ONLY = re.compile(r'^\s*LFM(\s+[A-Za-z0-9]{1,6})?\s*$', re.IGNORECASE)
+_RECRUIT_HINTS = ('募集', 'ＬＦＭ', 'LFM', '求む', '歓迎')
+_CONTENT_HINTS = ('ギル', '突入', 'お願い', '補助', '万', 'Dynamis', 'ソート', 'オデ')
+
+
+def translation_implausible(source, translation, source_lang, target_lang):
+    """Catch prompt-biased collapses like Dynamis gil ask → 'LFM WHM'."""
+    if not source or not translation:
+        return False
+    if (source_lang or '').lower() != 'ja' or (target_lang or '').lower() != 'en':
+        return False
+    if looks_mojibake(source):
+        return True
+    if _LFM_ONLY.match(translation.strip()):
+        if any(h in source for h in _CONTENT_HINTS):
+            return True
+        if len(source) >= 18 and not any(h in source for h in _RECRUIT_HINTS):
+            return True
+    # Extremely short EN for long JP source
+    if len(source) >= 24 and len(translation.strip()) <= 8 and not any(h in source for h in _RECRUIT_HINTS):
+        return True
+    return False
+
+
 def _has_cjk(text):
     return bool(re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text or ''))
+
+
+def decode_queue_bytes(raw: bytes) -> str:
+    """Decode queue file bytes, preferring real UTF-8 then CP932 (FFXI)."""
+    if not raw:
+        return ''
+    try:
+        text = raw.decode('utf-8')
+        if '\ufffd' not in text:
+            return text
+    except UnicodeDecodeError:
+        pass
+    for enc in ('cp932', 'shift_jis'):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode('utf-8', errors='replace')
+
+
+def maybe_fix_sjis_mojibake(text: str) -> str:
+    """If SJIS bytes were interpreted as Latin-1, recover real UTF-8 Japanese."""
+    if not text or _has_cjk(text):
+        return text
+    try:
+        raw = text.encode('latin-1')
+    except UnicodeEncodeError:
+        return text
+    for enc in ('cp932', 'shift_jis'):
+        try:
+            fixed = raw.decode(enc)
+            if _has_cjk(fixed) and not looks_mojibake(fixed):
+                return fixed
+        except UnicodeDecodeError:
+            continue
+    return text
+
 
 def clean_llm_output(text, target_lang):
     """Strip prompt leakage / alternatives; keep a single chat line."""
@@ -907,7 +1015,7 @@ def call_llm(text, source_lang, target_lang):
             "model": LLM_MODEL,
             "messages": messages,
             "temperature": 0.2,
-            "max_tokens": 120
+            "max_tokens": 256
         }
 
         with httpx.Client(timeout=30.0) as client:
@@ -929,6 +1037,14 @@ def call_llm(text, source_lang, target_lang):
 
 def translate_text(text, source_lang, target_lang):
     """Translate text using LLM with SQLite caching and gaming context"""
+    text = maybe_fix_sjis_mojibake((text or '').strip())
+    if not text:
+        return None
+
+    if source_lang == 'ja' and looks_mojibake(text):
+        print(f"[Kotoba Translator] Rejecting mojibake source (not translating): {text[:60]}")
+        return None
+
     # Lightning path: known short phrases (no network)
     bucket = FAST_PHRASES.get((source_lang, target_lang))
     if bucket:
@@ -940,10 +1056,24 @@ def translate_text(text, source_lang, target_lang):
 
     cached, hit = get_cached_translation(text, source_lang, target_lang)
     if hit:
-        if output_looks_wrong_language(cached, target_lang) or re.search(
-            r"here'?s the natural|translation:", cached or '', re.IGNORECASE
+        if (
+            output_looks_wrong_language(cached, target_lang)
+            or translation_implausible(text, cached, source_lang, target_lang)
+            or re.search(r"here'?s the natural|translation:", cached or '', re.IGNORECASE)
         ):
-            print(f"[Kotoba Translator] Ignoring bad cache entry for: {text[:40]}")
+            print(f"[Kotoba Translator] Ignoring bad cache entry for: {text[:40]} -> {cached[:40]}")
+            # Drop poisoned cache row so the next call can recover
+            try:
+                key = normalize_cache_key(text)
+                conn = sqlite3.connect(str(DB_FILE))
+                conn.execute(
+                    "DELETE FROM translations WHERE source_text=? AND source_lang=? AND target_lang=?",
+                    (key, source_lang, target_lang),
+                )
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"[Kotoba Translator] Bad-cache delete failed: {e}")
         else:
             stats['sqlite_hits'] += 1
             print(f"[Kotoba Translator] Cache hit (SQLite): {text[:40]}")
@@ -964,14 +1094,22 @@ def translate_text(text, source_lang, target_lang):
         if not translation:
             return None
 
-        if output_looks_wrong_language(translation, target_lang):
-            print(f"[Kotoba Translator] Wrong-language output, retrying: {translation[:50]}")
+        if output_looks_wrong_language(translation, target_lang) or translation_implausible(
+            text, translation, source_lang, target_lang
+        ):
+            print(f"[Kotoba Translator] Implausible/wrong output, retrying: {translation[:50]}")
             retry = call_llm(
-                preprocessed + f"\n(IMPORTANT: answer in {LANG_NAMES.get(target_lang, target_lang)} only)",
+                preprocessed
+                + "\n(IMPORTANT: translate the FULL meaning into "
+                + f"{LANG_NAMES.get(target_lang, target_lang)}; do not invent LFM)",
                 source_lang,
                 target_lang,
             )
-            if retry and not output_looks_wrong_language(retry, target_lang):
+            if (
+                retry
+                and not output_looks_wrong_language(retry, target_lang)
+                and not translation_implausible(text, retry, source_lang, target_lang)
+            ):
                 translation = retry
             else:
                 print(f"[Kotoba Translator] Rejecting bad translation (not storing): {translation[:50]}")
@@ -1002,18 +1140,9 @@ def process_queue():
         return
 
     try:
-        lines = []
-        try:
-            with open(QUEUE_FILE, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-        except UnicodeDecodeError:
-            try:
-                with open(QUEUE_FILE, 'r', encoding='shift-jis') as f:
-                    lines = f.readlines()
-            except UnicodeDecodeError:
-                with open(QUEUE_FILE, 'rb') as f:
-                    content = f.read()
-                    lines = content.decode('utf-8', errors='ignore').split('\n')
+        raw = QUEUE_FILE.read_bytes()
+        content = decode_queue_bytes(raw)
+        lines = content.splitlines()
 
         if not lines:
             return
@@ -1040,6 +1169,7 @@ def process_queue():
                 # Unescape special characters
                 text = text.replace('\\|', '|').replace('\\n', '\n').replace('\\r', '\r')
                 text = text.replace('\x00', '').strip()
+                text = maybe_fix_sjis_mojibake(text)
 
                 if not text:
                     continue
@@ -1057,6 +1187,9 @@ def process_queue():
 
             except Exception as e:
                 print(f"[Kotoba Translator] Error processing line: {e}")
+                maybe_id = line.split('|', 1)[0] if '|' in line else None
+                if maybe_id:
+                    results.append(f"{maybe_id}|__ERROR__|exception\n")
                 import traceback
                 traceback.print_exc()
                 # Best-effort id extract so Lua can unblock
@@ -1222,6 +1355,9 @@ def main():
 
     # Initialize SQLite
     init_db()
+    purged = purge_poisoned_cache()
+    if purged:
+        print(f"[Kotoba Translator] Purged {purged} poisoned cache entr{'y' if purged == 1 else 'ies'}")
 
     # Ensure files exist
     QUEUE_FILE.touch(exist_ok=True)
