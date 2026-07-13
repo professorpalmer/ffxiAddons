@@ -9,7 +9,7 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.0.6'
+_addon.version = '2.0.7'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
@@ -41,8 +41,11 @@ if not input_ok then
         stop = function() end,
         confirm = function() end,
         handle_key = function() return false end,
+        ingest_token = function() end,
+        force_unblock = function() end,
         get_buffer = function() return '' end,
         set_buffer = function() end,
+        tick = function() end,
     }
 end
 
@@ -949,9 +952,24 @@ windower.register_event('login', function(name)
     chat('Welcome, ' .. name .. '! Auto-translate is ' .. (settings.auto_translate and 'ON' or 'OFF'))
 end)
 
+windower.register_event('unload', function()
+    if kb_input.force_unblock then
+        kb_input.force_unblock()
+    end
+    windower.send_command('keyboard_blockinput 0')
+end)
+
 windower.register_event('addon command', function(command, ...)
     local args = {...}
     command = command and command:lower() or nil
+
+    -- Internal: % binds route here while editing (lua c kotoba _k <token>)
+    if command == '_k' then
+        if kb_input.ingest_token then
+            kb_input.ingest_token(args[1])
+        end
+        return
+    end
 
     if command == nil or command == '' then
         toggle_window_visible()

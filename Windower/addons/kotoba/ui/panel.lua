@@ -478,7 +478,7 @@ function panel.refresh(settings, state)
     elements.status:text(status == '' and 'Status: ready' or ('Status: ' .. status))
 
     if mode == 'compose' or mode == 'tell' then
-        elements.hint:text('>> Typing in Kotoba — Enter locks · Esc cancels')
+        elements.hint:text('>> Typing isolated (blockinput) — Enter locks · Esc cancels')
         elements.hint:show()
     else
         elements.hint:text('')

@@ -24,13 +24,19 @@ Goal: Ashita-like compose / tell text fields on **Windower 4**.
 
 ## Chosen path (shipped in `ui/input.lua`)
 
-1. Click Compose / Tell → open chat (so blocking works) + clear chat input
-2. Capture DIK into Kotoba’s buffer; `return true` so letters never hit game chat
-3. Draw buffer on the panel with a `_` caret
-4. Enter confirms · Esc cancels
-5. `input.tick()` re-opens chat if it closes mid-edit (otherwise WASD still moves you)
+**Official isolation (docs.windower.net/commands/input/):**
 
-That is as close as W4 gets to Ashita `InputText` without waiting for Windower 5.
+1. `keyboard_blockinput 1` while editing — blocks keyboard from reaching FFXI
+   (same primitive Trade uses while automating menus)
+2. `bind %<key> lua c kotoba _k <token>` — `%` = only while chat is **closed**;
+   steals the key from the game movement layer (Windower macro layer)
+3. `keyboard` event still fills the buffer when it fires; `return true` as backup
+4. On stop/unload: `keyboard_blockinput 0` + `unbind` all temp binds
+
+**Do not use:** chat-open + `setkey enter` loops (door-menu flash), or
+`return true` alone (Issues#788 — only blocks when chat is open).
+
+Enter confirms · Esc cancels.
 
 ## Sending Japanese (mojibake fix)
 

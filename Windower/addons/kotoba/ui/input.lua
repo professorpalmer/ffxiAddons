@@ -1,11 +1,16 @@
 --[[
     Kotoba in-panel text input for Windower 4
 
-    Capture DIK → buffer → panel caret; return true to consume keys.
-    Key-blocking via return-true only works while chat is open (Issues#788).
+    Isolation (from https://docs.windower.net/commands/input/):
 
-    Also temporarily bind movement/letter keys to a no-op while editing, so
-    WASD cannot move the character even if chat briefly closes.
+      1. keyboard_blockinput 1  — official global block of keyboard → game
+         (used by Trade addon while automating menus)
+      2. bind %<key> …          — % = valid only while chat is CLOSED; steals
+         the key from FFXI movement/macros (same layer as Windower macros)
+      3. keyboard event         — still capture DIK into our buffer when it fires
+
+    Do NOT rely on return-true alone (Windower/Issues#788: only works with
+    chat open). Do NOT spam setkey enter/escape to hold chat open.
 ]]
 
 local input = {}
@@ -29,20 +34,23 @@ local KEYMAP = {
     [57] = { ' ', ' ' },
 }
 
--- Keys that must not reach the game while typing (movement + letters)
-local SUPPRESS_KEYS = {
-    'w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'c', 'v', 'f', 'r', 't', 'g', 'b', 'n',
-    'h', 'j', 'k', 'l', 'y', 'u', 'i', 'o', 'p', 'm',
-    'numpad2', 'numpad4', 'numpad6', 'numpad8',
-    'up', 'down', 'left', 'right',
-}
-
 local BACKSPACE = 14
 local ENTER = 28
 local NUMPAD_ENTER = 156
 local ESCAPE = 1
 local LSHIFT = 42
 local RSHIFT = 54
+
+-- Keys we steal via % binds while editing (chat-closed state)
+local BIND_LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+local BIND_EXTRAS = {
+    'space', 'backspace', 'enter', 'escape',
+    'numpadenter', 'numpad0', 'numpad1', 'numpad2', 'numpad3', 'numpad4',
+    'numpad5', 'numpad6', 'numpad7', 'numpad8', 'numpad9',
+    'up', 'down', 'left', 'right',
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+    'comma', 'period', 'minus',
+}
 
 local shift_down = false
 local active = false
@@ -52,79 +60,72 @@ local max_len = 200
 local on_change = nil
 local on_confirm = nil
 local on_cancel = nil
-local ignore_keys_until = 0
-local we_opened_chat = false
-local keys_suppressed = false
-local last_reopen = 0
-
-local function chat_open()
-    if windower.chat and windower.chat.is_open then
-        return windower.chat.is_open()
-    end
-    local info = windower.ffxi.get_info()
-    return info and info.chat_open
-end
-
-local function clear_chat_input()
-    if windower.chat and windower.chat.set_input then
-        pcall(windower.chat.set_input, '')
-    end
-end
-
-local function suppress_game_keys(enable)
-    if enable and not keys_suppressed then
-        for _, key in ipairs(SUPPRESS_KEYS) do
-            -- wait = no-op; prevents default game bind for this key while editing
-            windower.send_command('bind ' .. key .. ' wait')
-        end
-        keys_suppressed = true
-    elseif (not enable) and keys_suppressed then
-        for _, key in ipairs(SUPPRESS_KEYS) do
-            windower.send_command('unbind ' .. key)
-        end
-        keys_suppressed = false
-    end
-end
-
-local function open_chat_for_typing()
-    if chat_open() then
-        clear_chat_input()
-        return false
-    end
-    ignore_keys_until = os.clock() + 0.70
-    last_reopen = os.clock()
-    -- Escape clears menus first; Enter opens chat (Issues#788 needs chat open)
-    windower.send_command(
-        'setkey escape down; wait 0.06; setkey escape up; wait 0.10; '
-        .. 'setkey enter down; wait 0.05; setkey enter up'
-    )
-    return true
-end
-
-local function reopen_chat_soft()
-    local now = os.clock()
-    if now - last_reopen < 0.9 then
-        return
-    end
-    last_reopen = now
-    ignore_keys_until = now + 0.35
-    -- Enter only — do not Esc-spam (that fought door menus)
-    windower.send_command('setkey enter down; wait 0.05; setkey enter up')
-    we_opened_chat = true
-end
-
-local function close_chat_gently()
-    if not chat_open() then
-        return
-    end
-    ignore_keys_until = os.clock() + 0.35
-    windower.send_command('setkey escape down; wait 0.05; setkey escape up')
-end
+local isolation_on = false
+local bound_keys = {}
 
 local function notify_change()
     if on_change then
         on_change(mode, buffer)
     end
+end
+
+local function append_char(ch)
+    if not active then
+        return
+    end
+    if #buffer < max_len then
+        buffer = buffer .. ch
+        notify_change()
+    end
+end
+
+local function backspace()
+    if not active then
+        return
+    end
+    if #buffer > 0 then
+        buffer = buffer:sub(1, -2)
+        notify_change()
+    end
+end
+
+local function arm_isolation()
+    if isolation_on then
+        return
+    end
+    isolation_on = true
+    bound_keys = {}
+
+    -- Official Windower input block (docs.windower.net/commands/input/)
+    windower.send_command('keyboard_blockinput 1')
+
+    -- % = bind only while chat is CLOSED — steals key from FFXI movement layer
+    for i = 1, #BIND_LETTERS do
+        local ch = BIND_LETTERS:sub(i, i)
+        local cmd = string.format('bind %%%s lua c kotoba _k %s', ch, ch)
+        windower.send_command(cmd)
+        table.insert(bound_keys, '%' .. ch)
+        -- Shift+letter
+        windower.send_command(string.format('bind ~%%%s lua c kotoba _k %s', ch, ch:upper()))
+        table.insert(bound_keys, '~%' .. ch)
+    end
+
+    for _, key in ipairs(BIND_EXTRAS) do
+        windower.send_command(string.format('bind %%%s lua c kotoba _k %s', key, key))
+        table.insert(bound_keys, '%' .. key)
+    end
+end
+
+local function disarm_isolation()
+    if not isolation_on then
+        return
+    end
+    isolation_on = false
+    windower.send_command('keyboard_blockinput 0')
+    for _, key in ipairs(bound_keys) do
+        windower.send_command('unbind ' .. key)
+    end
+    bound_keys = {}
 end
 
 function input.is_active()
@@ -150,22 +151,15 @@ function input.start(new_mode, initial, callbacks)
     on_change = callbacks and callbacks.on_change or nil
     on_confirm = callbacks and callbacks.on_confirm or nil
     on_cancel = callbacks and callbacks.on_cancel or nil
-
-    suppress_game_keys(true)
-    we_opened_chat = open_chat_for_typing()
     active = true
-    clear_chat_input()
+    arm_isolation()
     notify_change()
 end
 
 function input.stop(close_chat)
     active = false
     mode = nil
-    suppress_game_keys(false)
-    if close_chat and we_opened_chat then
-        close_chat_gently()
-    end
-    we_opened_chat = false
+    disarm_isolation()
 end
 
 function input.confirm()
@@ -184,23 +178,35 @@ function input.cancel()
     end
 end
 
+-- No chat reopen loop — isolation is blockinput + % binds
 function input.tick()
-    if not active then
+end
+
+-- Called from //kotoba _k <token> (bind path) and keyboard event
+function input.ingest_token(token)
+    if not active or not token then
         return
     end
-    -- Keep chat open so return-true blocks; binds cover movement if it flaps
-    if not chat_open() then
-        reopen_chat_soft()
-        return
-    end
-    if windower.chat and windower.chat.get_input then
-        local ok, text = pcall(function()
-            local t = windower.chat.get_input()
-            return type(t) == 'string' and t or ''
-        end)
-        if ok and text and text ~= '' then
-            clear_chat_input()
-        end
+    local raw = token
+    local low = token:lower()
+    if low == 'backspace' then
+        backspace()
+    elseif low == 'enter' or low == 'numpadenter' then
+        input.confirm()
+    elseif low == 'escape' then
+        input.cancel()
+    elseif low == 'space' then
+        append_char(' ')
+    elseif low == 'comma' then
+        append_char(',')
+    elseif low == 'period' then
+        append_char('.')
+    elseif low == 'minus' then
+        append_char('-')
+    elseif #raw == 1 then
+        append_char(raw) -- keep case from ~% shift binds
+    elseif low:match('^numpad%d$') then
+        append_char(low:sub(-1))
     end
 end
 
@@ -218,10 +224,6 @@ function input.handle_key(dik, down)
         return true
     end
 
-    if os.clock() < ignore_keys_until then
-        return true
-    end
-
     if dik == ESCAPE then
         input.cancel()
         return true
@@ -233,23 +235,23 @@ function input.handle_key(dik, down)
     end
 
     if dik == BACKSPACE then
-        if #buffer > 0 then
-            buffer = buffer:sub(1, -2)
-            notify_change()
-        end
+        backspace()
         return true
     end
 
     local pair = KEYMAP[dik]
     if pair then
-        if #buffer < max_len then
-            buffer = buffer .. (shift_down and pair[2] or pair[1])
-            notify_change()
-        end
+        append_char(shift_down and pair[2] or pair[1])
         return true
     end
 
     return true
+end
+
+function input.force_unblock()
+    disarm_isolation()
+    active = false
+    mode = nil
 end
 
 return input
