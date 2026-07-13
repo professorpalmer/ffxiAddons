@@ -1,0 +1,24 @@
+# Kotoba Translator Configuration
+# LLM API settings (OpenAI-compatible)
+# Works with DeepSeek (default), OpenAI, OpenRouter, or any OpenAI-compatible endpoint
+#
+# Copy this file to translator_config.txt and add your key:
+#   copy translator_config.example.txt translator_config.txt
+#
+# Never commit translator_config.txt -- it is gitignored.
+
+LLM_API_KEY=your_api_key_here
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat
+
+# For OpenAI:
+# LLM_BASE_URL=https://api.openai.com/v1
+# LLM_MODEL=gpt-4o-mini
+
+# For OpenRouter (use any model available on openrouter.ai):
+# LLM_BASE_URL=https://openrouter.ai/api/v1
+# LLM_MODEL=openai/gpt-4o-mini
+
+# For other providers (e.g. local Ollama):
+# LLM_BASE_URL=http://localhost:11434/v1
+# LLM_MODEL=llama3

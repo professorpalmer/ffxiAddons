@@ -771,7 +771,7 @@ local function RenderWindow()
     
     imgui.SetNextWindowSize({ 500, 280 }, ImGuiCond_FirstUseEver);
     
-    if imgui.Begin('Kotoba v1.1 - Translation Assistant', kotoba.is_open, ImGuiWindowFlags_None) then
+    if imgui.Begin('Kotoba v2.0 - Translation Assistant', kotoba.is_open, ImGuiWindowFlags_None) then
         -- Auto-translate toggle
         imgui.Text('Auto-Translate Incoming:');
         imgui.SameLine();
@@ -847,17 +847,14 @@ local function RenderWindow()
         if imgui.Button('Translate & Send') then
             local text = kotoba.input_text[1] or '';
             if text ~= '' then
-                local source_lang = 'en';
-                if kotoba.translate_to == 'en' then
-                    source_lang = 'ja';
-                elseif kotoba.translate_to == 'ja' then
-                    source_lang = 'en';
-                end
+                -- Compose box: English when target is NOT en; Japanese when target is en
+                -- (incoming-style). For ja/es/fr/de/ko/zh, source_lang is always 'en'.
+                local source_lang = (kotoba.translate_to == 'en') and 'ja' or 'en';
                 
                 -- Get send target
-                    local target = kotoba.send_channel == 'Tell' and kotoba.tell_target[1] or nil;
+                local target = kotoba.send_channel == 'Tell' and kotoba.tell_target[1] or nil;
                 
-                -- Queue translation with auto-send
+                -- Queue translation with auto-send (translate_to persists in kotoba state)
                 QueueTranslation(text, kotoba.translate_to, source_lang, 'Translate & Send', {
                     auto_send = true,
                     channel = kotoba.send_channel,
