@@ -24,11 +24,21 @@ Title: **Kotoba v2.0 - Translation Assistant**
 |---------|--------------|
 | `[x] Auto-Translate Incoming` | Toggle auto-translate |
 | `Language: …` | Cycle ja → en → es → fr → de → ko → zh |
-| Compose preview | Set via `//kb compose <text>` |
+| `Compose: …` | Focus compose field — type into Kotoba (caret `_`) |
 | `[Translate & Send]` | Translate compose → `settings.language` and send |
-| `[Copy]` / `[Paste]` / `[Clear]` | Best-effort clipboard buffer + compose |
+| `[Copy]` / `[Paste]` / `[Clear]` | Clipboard helpers + clear compose |
 | `Send to: …` | Cycle say / party / tell / ls / ls2 / shout / yell |
-| Tell target line | Shown when channel is tell; set with `//kb tell <name>` |
+| `Tell target: …` | Focus name field — type into Kotoba, Enter to lock |
+
+**Panel typing (Windower 4 reality):** There is no ImGui / `ui.edit` on Windower 4 (`ui.edit` is Windower 5). `texts` cannot take keyboard focus. Kotoba uses the proven W4 pattern (same idea as XIVCrossbar’s env chooser):
+
+1. Click **Compose** or **Tell target** → Kotoba opens chat briefly so key-blocking works ([Windower/Issues#788](https://github.com/Windower/Issues/issues/788))
+2. Keys are captured into an internal buffer and drawn on the panel (`Compose> …_`) — they do **not** go into game chat
+3. **Enter** locks the field · **Esc** cancels · then click **[Translate & Send]**
+
+`//kb compose` / `//kb tell` still work as fallbacks.
+
+See `UI_RESEARCH.md` for the addon/UI landscape (GUI-lib, BluGuide, ruptchat, W5 core.ui).
 
 Drag the panel by the title/background to reposition (position is saved).
 

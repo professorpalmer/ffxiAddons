@@ -122,32 +122,35 @@ LANG_NAMES = {
     'auto': 'auto-detected',
 }
 
-SYSTEM_PROMPT = """You are a translator for FFXI (Final Fantasy XI) multi-language chat messages. Translate between Japanese, English, Spanish, French, German, Korean, and Chinese as requested. When the target language is English, translate naturally using casual gaming slang — brief and conversational, like how players actually talk in MMO chat.
+SYSTEM_PROMPT = """You are a machine translator for Final Fantasy XI chat.
+You ONLY output the translated message text in the requested target language.
 
-Rules:
-- Use common MMO abbreviations (LFM, LFG, WHM, BLM, PLD, etc.) when targeting English
-- Keep it casual and short when targeting English, not formal
-- For other target languages, keep natural in-game chat tone for that language
-- Preserve the intent and tone of the original
-- For English questions, use casual forms ("Wanna do X?" not "Would you like to do X?")
-- For English greetings/thanks, use gaming equivalents ("gj", "ty", "np", "gl")
-- If the text is already mostly English game terms and the target is English, just clean it up
+Hard rules:
+- Output ONE translation only — no quotes, no options, no "or", no explanations
+- Do NOT write preambles like "Here's the translation:" or "Natural English:"
+- Do NOT echo the source language when a different target was requested
+- Keep it short and casual, like real MMO chat in the TARGET language
+- Preserve job abbreviations (WHM, BLM, PLD, Sortie, Odyssey, etc.) as players write them
+- If target is English: casual EN gaming slang (wanna, LFM, ty, np, gj)
+- If target is Japanese: natural casual Japanese chat (です/ます optional; やる？行こ is fine)
+- If target is Spanish/French/German/Korean/Chinese: casual chat tone in that language only
 
-Examples (Japanese → English):
-User: ソーティやる？
-Assistant: Wanna do Sortie?
+Examples:
+JA→EN  ソーティやる？  →  Wanna do Sortie?
+JA→EN  白魔募集中  →  LFM WHM
+EN→JA  hey what are you up to?  →  今何してる？
+EN→JA  wanna do Sortie?  →  ソーティやる？
+EN→ES  ready?  →  ¿listo?
+"""
 
-User: 今からオデシー行こ
-Assistant: Let's go Odyssey now
-
-User: 白魔募集中
-Assistant: LFM WHM
-
-User: おつかれ！
-Assistant: gj!
-
-User: ヘイストください
-Assistant: Haste pls"""
+# Phrases the model sometimes prepends — strip before accepting output
+_LEAK_PREFIXES = (
+    r"^\s*here'?s\s+(the\s+)?(natural\s+)?(english\s+)?(mmo\s+)?(chat\s+)?translation\s*:?\s*",
+    r"^\s*translation\s*:?\s*",
+    r"^\s*translated\s*(text|message)?\s*:?\s*",
+    r"^\s*natural\s+english\s*(mmo\s*chat)?\s*(translation)?\s*:?\s*",
+    r"^\s*in\s+\w+\s*:?\s*",
+)
 
 # ============================================================================
 # SQLITE CACHE
@@ -805,17 +808,64 @@ def postprocess_english(text):
         processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
     return processed
 
+def _has_cjk(text):
+    return bool(re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text or ''))
+
+def clean_llm_output(text, target_lang):
+    """Strip prompt leakage / alternatives; keep a single chat line."""
+    if not text:
+        return text
+    out = text.strip()
+    if (out.startswith('"') and out.endswith('"')) or (out.startswith("'") and out.endswith("'")):
+        out = out[1:-1].strip()
+    for pat in _LEAK_PREFIXES:
+        out = re.sub(pat, '', out, flags=re.IGNORECASE)
+    # Model sometimes returns: "opt1" or "opt2"
+    if re.search(r'\bor\b', out, flags=re.IGNORECASE) and out.count('"') >= 2:
+        first = re.search(r'"([^"]+)"', out)
+        if first:
+            out = first.group(1).strip()
+    out = out.split('\n', 1)[0].strip()
+    out = out.strip(' "\'')
+    return out
+
+def output_looks_wrong_language(text, target_lang):
+    """True if output is clearly not in the requested target (common DeepSeek slip)."""
+    if not text or not target_lang:
+        return False
+    t = target_lang.lower()
+    # Meta leakage in any language
+    if re.search(
+        r"here'?s the natural|translation:|日本語訳|翻訳結果|traducci[oó]n\s*:",
+        text,
+        re.IGNORECASE,
+    ):
+        return True
+    if t in ('ja', 'zh', 'ko'):
+        if not _has_cjk(text) and re.search(r'[A-Za-z]{3,}', text):
+            return True
+        # Entirely a meta label like 「日本語訳」 with no real message content
+        if re.fullmatch(r'\s*(日本語訳|翻訳|日訳|中文翻译|번역)\s*', text):
+            return True
+    if t == 'en':
+        if _has_cjk(text) and not re.search(r'[A-Za-z]{2,}', text):
+            return True
+    return False
+
 def call_llm(text, source_lang, target_lang):
     """Call the LLM API to translate text. Returns translation string or None."""
     try:
-        # Always use clear human language names for any pair (ja/en/es/fr/de/ko/zh/auto)
         src_name = LANG_NAMES.get(source_lang, source_lang)
         tgt_name = LANG_NAMES.get(target_lang, target_lang)
-        direction = f"Translate the following {src_name} FFXI chat message to {tgt_name}:"
+        direction = (
+            f"Translate this {src_name} FFXI chat line to {tgt_name}. "
+            f"Reply with ONLY the {tgt_name} chat text — no quotes, no alternatives, no commentary.\n"
+            f"{text}"
+        )
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"{direction}\n{text}"}
+            {"role": "user", "content": direction}
         ]
 
         url = f"{LLM_BASE_URL.rstrip('/')}/chat/completions"
@@ -826,15 +876,19 @@ def call_llm(text, source_lang, target_lang):
         body = {
             "model": LLM_MODEL,
             "messages": messages,
-            "temperature": 0.3,
-            "max_tokens": 200
+            "temperature": 0.2,
+            "max_tokens": 120
         }
 
         with httpx.Client(timeout=30.0) as client:
             response = client.post(url, headers=headers, json=body)
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+            raw = data["choices"][0]["message"]["content"].strip()
+            cleaned = clean_llm_output(raw, target_lang)
+            if cleaned != raw:
+                print(f"[Kotoba Translator] Cleaned LLM leakage: {raw[:60]} -> {cleaned[:60]}")
+            return cleaned
 
     except httpx.HTTPStatusError as e:
         print(f"[Kotoba Translator] LLM API error {e.response.status_code}: {e.response.text[:200]}")
@@ -845,39 +899,51 @@ def call_llm(text, source_lang, target_lang):
 
 def translate_text(text, source_lang, target_lang):
     """Translate text using LLM with SQLite caching and gaming context"""
-    # Check SQLite cache first
     cached, hit = get_cached_translation(text, source_lang, target_lang)
     if hit:
-        stats['sqlite_hits'] += 1
-        print(f"[Kotoba Translator] Cache hit (SQLite): {text[:40]}")
-        return cached
+        if output_looks_wrong_language(cached, target_lang) or re.search(
+            r"here'?s the natural|translation:", cached or '', re.IGNORECASE
+        ):
+            print(f"[Kotoba Translator] Ignoring bad cache entry for: {text[:40]}")
+        else:
+            stats['sqlite_hits'] += 1
+            print(f"[Kotoba Translator] Cache hit (SQLite): {text[:40]}")
+            return cached
 
     stats['llm_calls'] += 1
     stats['translations'] += 1
 
     try:
-        # Preprocess: Replace FFXI/MMO terms BEFORE sending to LLM
         preprocessed = text
         if source_lang == 'ja':
             preprocessed = preprocess_japanese(text)
             if preprocessed != text:
                 print(f"[Kotoba Translator] Preprocessed: {text[:40]} -> {preprocessed[:40]}")
 
-        # Call LLM
         translation = call_llm(preprocessed, source_lang, target_lang)
 
         if not translation:
             return None
 
-        # Postprocess: Make it casual/natural
+        if output_looks_wrong_language(translation, target_lang):
+            print(f"[Kotoba Translator] Wrong-language output, retrying: {translation[:50]}")
+            retry = call_llm(
+                preprocessed + f"\n(IMPORTANT: answer in {LANG_NAMES.get(target_lang, target_lang)} only)",
+                source_lang,
+                target_lang,
+            )
+            if retry and not output_looks_wrong_language(retry, target_lang):
+                translation = retry
+            else:
+                print(f"[Kotoba Translator] Rejecting bad translation (not storing): {translation[:50]}")
+                return None
+
         if target_lang == 'en':
             translation = postprocess_english(translation)
 
-        # Detect potentially missing glossary terms
         if source_lang == 'ja' and target_lang == 'en':
             detect_untranslated_terms(text, translation, preprocessed)
 
-        # Store in SQLite cache
         store_translation(text, source_lang, target_lang, translation)
 
         print(f"[Kotoba Translator] Translated: {text[:40]} -> {translation[:40]}")

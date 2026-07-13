@@ -1,0 +1,217 @@
+--[[
+    Kotoba in-panel text input for Windower 4
+
+    Capture DIK → buffer → panel caret; return true to consume keys.
+    Key-blocking only works while game chat is open (Windower/Issues#788).
+
+    Open chat safely:
+      1) Escape once to dismiss door/NPC menus (Enter would confirm them)
+      2) Enter once to open chat
+      3) NEVER re-open in a loop (that caused menu flash)
+    Swallow Escape/Enter during the open sequence so we don't self-cancel.
+]]
+
+local input = {}
+
+local KEYMAP = {
+    [2] = { '1', '!' }, [3] = { '2', '@' }, [4] = { '3', '#' }, [5] = { '4', '$' },
+    [6] = { '5', '%' }, [7] = { '6', '^' }, [8] = { '7', '&' }, [9] = { '8', '*' },
+    [10] = { '9', '(' }, [11] = { '0', ')' },
+    [12] = { '-', '_' }, [13] = { '=', '+' },
+    [16] = { 'q', 'Q' }, [17] = { 'w', 'W' }, [18] = { 'e', 'E' }, [19] = { 'r', 'R' },
+    [20] = { 't', 'T' }, [21] = { 'y', 'Y' }, [22] = { 'u', 'U' }, [23] = { 'i', 'I' },
+    [24] = { 'o', 'O' }, [25] = { 'p', 'P' },
+    [26] = { '[', '{' }, [27] = { ']', '}' }, [39] = { ';', ':' }, [40] = { "'", '"' },
+    [41] = { '`', '~' }, [43] = { '\\', '|' },
+    [30] = { 'a', 'A' }, [31] = { 's', 'S' }, [32] = { 'd', 'D' }, [33] = { 'f', 'F' },
+    [34] = { 'g', 'G' }, [35] = { 'h', 'H' }, [36] = { 'j', 'J' }, [37] = { 'k', 'K' },
+    [38] = { 'l', 'L' },
+    [44] = { 'z', 'Z' }, [45] = { 'x', 'X' }, [46] = { 'c', 'C' }, [47] = { 'v', 'V' },
+    [48] = { 'b', 'B' }, [49] = { 'n', 'N' }, [50] = { 'm', 'M' },
+    [51] = { ',', '<' }, [52] = { '.', '>' }, [53] = { '/', '?' },
+    [57] = { ' ', ' ' },
+}
+
+local BACKSPACE = 14
+local ENTER = 28
+local NUMPAD_ENTER = 156
+local ESCAPE = 1
+local LSHIFT = 42
+local RSHIFT = 54
+
+local shift_down = false
+local active = false
+local buffer = ''
+local mode = nil
+local max_len = 200
+local on_change = nil
+local on_confirm = nil
+local on_cancel = nil
+local ignore_keys_until = 0
+local we_opened_chat = false
+
+local function chat_open()
+    if windower.chat and windower.chat.is_open then
+        return windower.chat.is_open()
+    end
+    local info = windower.ffxi.get_info()
+    return info and info.chat_open
+end
+
+local function clear_chat_input()
+    if windower.chat and windower.chat.set_input then
+        pcall(windower.chat.set_input, '')
+    end
+end
+
+local function open_chat_for_typing()
+    if chat_open() then
+        clear_chat_input()
+        return false
+    end
+    -- Swallow the Escape/Enter we are about to synthesize (prevents Edit cancelled)
+    ignore_keys_until = os.clock() + 0.70
+    -- Escape dismisses door/NPC menus first; Enter then opens chat (not the menu)
+    windower.send_command(
+        'setkey escape down; wait 0.06; setkey escape up; wait 0.10; '
+        .. 'setkey enter down; wait 0.05; setkey enter up'
+    )
+    return true
+end
+
+local function close_chat_gently()
+    if not chat_open() then
+        return
+    end
+    ignore_keys_until = os.clock() + 0.35
+    windower.send_command('setkey escape down; wait 0.05; setkey escape up')
+end
+
+local function notify_change()
+    if on_change then
+        on_change(mode, buffer)
+    end
+end
+
+function input.is_active()
+    return active
+end
+
+function input.get_mode()
+    return mode
+end
+
+function input.get_buffer()
+    return buffer
+end
+
+function input.set_buffer(text)
+    buffer = text or ''
+    notify_change()
+end
+
+function input.start(new_mode, initial, callbacks)
+    mode = new_mode
+    buffer = initial or ''
+    on_change = callbacks and callbacks.on_change or nil
+    on_confirm = callbacks and callbacks.on_confirm or nil
+    on_cancel = callbacks and callbacks.on_cancel or nil
+
+    -- Arm ignore BEFORE active so synthetic Escape cannot cancel us
+    we_opened_chat = open_chat_for_typing()
+    active = true
+    clear_chat_input()
+    notify_change()
+end
+
+function input.stop(close_chat)
+    active = false
+    mode = nil
+    if close_chat and we_opened_chat then
+        close_chat_gently()
+    end
+    we_opened_chat = false
+end
+
+function input.confirm()
+    local m, b = mode, buffer
+    input.stop(true)
+    if on_confirm then
+        on_confirm(m, b)
+    end
+end
+
+function input.cancel()
+    local m = mode
+    input.stop(true)
+    if on_cancel then
+        on_cancel(m)
+    end
+end
+
+-- Clear leaked chat text only — NEVER re-open (re-open fought door menus)
+function input.tick()
+    if not active or not chat_open() then
+        return
+    end
+    if windower.chat and windower.chat.get_input then
+        local ok, text = pcall(function()
+            local t = windower.chat.get_input()
+            return type(t) == 'string' and t or ''
+        end)
+        if ok and text and text ~= '' then
+            clear_chat_input()
+        end
+    end
+end
+
+function input.handle_key(dik, down)
+    if not active then
+        return false
+    end
+
+    if dik == LSHIFT or dik == RSHIFT then
+        shift_down = down and true or false
+        return true
+    end
+
+    if not down then
+        return true
+    end
+
+    -- Swallow synthetic open/close keys
+    if os.clock() < ignore_keys_until then
+        return true
+    end
+
+    if dik == ESCAPE then
+        input.cancel()
+        return true
+    end
+
+    if dik == ENTER or dik == NUMPAD_ENTER then
+        input.confirm()
+        return true
+    end
+
+    if dik == BACKSPACE then
+        if #buffer > 0 then
+            buffer = buffer:sub(1, -2)
+            notify_change()
+        end
+        return true
+    end
+
+    local pair = KEYMAP[dik]
+    if pair then
+        if #buffer < max_len then
+            buffer = buffer .. (shift_down and pair[2] or pair[1])
+            notify_change()
+        end
+        return true
+    end
+
+    return true
+end
+
+return input

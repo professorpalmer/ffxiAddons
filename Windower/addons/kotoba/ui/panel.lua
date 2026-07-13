@@ -1,17 +1,14 @@
 --[[
-    Kotoba UI panel (Wave 2) — ruptchat-inspired texts chrome
+    Kotoba UI panel — clearer field chrome for Windower 4 texts
 
-    Layout (approximate Ashita ImGui):
-      Title: Kotoba v2.0 - Translation Assistant
-      [x] Auto-Translate Incoming
-      Language: <name>
-      Compose preview
-      [Translate & Send] [Copy] [Paste] [Clear]
-      Send to: <channel>
-      Tell target (when tell)
-      Status line
-
-    Click maps + title-bar drag via ui/mouse.lua (ruptchat patterns).
+    Visual hierarchy:
+      Title
+      toggles
+      COMPOSE box (shaded)  ← obvious type-here
+      action buttons
+      channel
+      TELL box (shaded, when tell)
+      status + typing hint
 ]]
 
 local controls = require('ui/controls')
@@ -23,9 +20,10 @@ end
 
 local panel = {}
 
-local LINE_H = 18
-local PAD = 6
-local PANEL_W = 420
+local LINE_H = 20
+local PAD = 8
+local PANEL_W = 460
+local FIELD_PAD = 4
 
 local visible = false
 local created = false
@@ -36,13 +34,24 @@ local state_ref = nil
 local elements = {}
 local click_map = {}
 
-local default_text_settings = {
-    pos = { x = 80, y = 120 },
-    bg = { alpha = 180, red = 20, green = 20, blue = 30, visible = true },
-    flags = { bold = false, italic = false, draggable = false },
-    padding = 2,
-    text = { size = 11, font = 'Consolas', alpha = 255, red = 230, green = 230, blue = 230 },
+-- Row layout (y offsets from panel top, after padding)
+-- 0 title, 1 auto, 2 lang, 3 compose label, 4 compose field,
+-- 5 buttons, 6 channel, 7 tell label, 8 tell field, 9 status, 10 hint
+local ROWS = {
+    title = 0,
+    auto = 1,
+    lang = 2,
+    compose_label = 3,
+    compose = 4,
+    buttons = 5,
+    channel = 6,
+    tell_label = 7,
+    tell = 8,
+    status = 9,
+    hint = 10,
 }
+
+local ROOT_LINES = 12
 
 local function make_text(label, opts)
     opts = opts or {}
@@ -53,7 +62,7 @@ local function make_text(label, opts)
             red = opts.bg_r or 20,
             green = opts.bg_g or 20,
             blue = opts.bg_b or 30,
-            visible = opts.bg_visible ~= false and (opts.bg_alpha or 0) > 0,
+            visible = (opts.bg_alpha or 0) > 0,
         },
         flags = { bold = opts.bold or false, italic = false, draggable = false },
         padding = opts.padding or 2,
@@ -91,44 +100,39 @@ end
 
 local function base_pos()
     local s = settings_ref
-    local x = (s and s.pos_x) or default_text_settings.pos.x
-    local y = (s and s.pos_y) or default_text_settings.pos.y
-    return x, y
+    return (s and s.pos_x) or 80, (s and s.pos_y) or 120
+end
+
+local function row_y(row)
+    return LINE_H * row
 end
 
 local function rebuild_click_map()
     click_map = {}
-    -- Relative to panel root (background) top-left
-    -- Row 0: title (drag only — no action)
-    -- Row 1: auto-translate
-    table.insert(click_map, {
-        id = 'auto',
-        x_start = PAD,
-        x_end = PANEL_W - PAD,
-        y_start = LINE_H * 1,
-        y_end = LINE_H * 2,
-        action = function()
-            if actions.toggle_auto then
-                actions.toggle_auto()
-            end
-        end,
-    })
-    -- Row 2: language
-    table.insert(click_map, {
-        id = 'lang',
-        x_start = PAD,
-        x_end = PANEL_W - PAD,
-        y_start = LINE_H * 2,
-        y_end = LINE_H * 3,
-        action = function()
-            if actions.cycle_lang then
-                actions.cycle_lang()
-            end
-        end,
-    })
-    -- Row 4: buttons — approximate column hitboxes
-    local btn_y0 = LINE_H * 4
-    local btn_y1 = LINE_H * 5
+    local function add(id, row, fn_name, height)
+        height = height or 1
+        table.insert(click_map, {
+            id = id,
+            x_start = PAD,
+            x_end = PANEL_W - PAD,
+            y_start = row_y(row),
+            y_end = row_y(row + height),
+            action = function()
+                if actions[fn_name] then
+                    actions[fn_name]()
+                end
+            end,
+        })
+    end
+
+    add('auto', ROWS.auto, 'toggle_auto')
+    add('lang', ROWS.lang, 'cycle_lang')
+    -- Label + shaded field both focus compose
+    add('compose_label', ROWS.compose_label, 'focus_compose')
+    add('compose', ROWS.compose, 'focus_compose')
+
+    local btn_y0 = row_y(ROWS.buttons)
+    local btn_y1 = row_y(ROWS.buttons + 1)
     local btn_w = (PANEL_W - PAD * 2) / 4
     local btn_actions = {
         { id = 'translate_send', fn = 'translate_send' },
@@ -151,19 +155,18 @@ local function rebuild_click_map()
             end,
         })
     end
-    -- Row 5: send channel
-    table.insert(click_map, {
-        id = 'channel',
-        x_start = PAD,
-        x_end = PANEL_W - PAD,
-        y_start = LINE_H * 5,
-        y_end = LINE_H * 6,
-        action = function()
-            if actions.cycle_channel then
-                actions.cycle_channel()
-            end
-        end,
-    })
+
+    add('channel', ROWS.channel, 'cycle_channel')
+    add('tell_label', ROWS.tell_label, 'focus_tell')
+    add('tell', ROWS.tell, 'focus_tell')
+end
+
+local function blank_root()
+    local lines = {}
+    for _ = 1, ROOT_LINES do
+        table.insert(lines, string.rep(' ', 56))
+    end
+    return table.concat(lines, '\n')
 end
 
 local function ensure_created()
@@ -173,35 +176,24 @@ local function ensure_created()
 
     local x, y = base_pos()
 
-    -- Background / root (drag target + hover bounds)
-    elements.root = make_text(
-        string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52) .. '\n'
-            .. string.rep(' ', 52),
-        {
-            x = x,
-            y = y,
-            bg_alpha = 200,
-            bg_r = 15,
-            bg_g = 18,
-            bg_b = 28,
-            bg_visible = true,
-            size = 11,
-            r = 15,
-            g = 18,
-            b = 28,
-            padding = PAD,
-        }
-    )
+    elements.root = make_text(blank_root(), {
+        x = x,
+        y = y,
+        bg_alpha = 210,
+        bg_r = 12,
+        bg_g = 14,
+        bg_b = 22,
+        bg_visible = true,
+        size = 11,
+        r = 12,
+        g = 14,
+        b = 22,
+        padding = PAD,
+    })
 
     elements.title = make_text('Kotoba v2.0 - Translation Assistant', {
         x = x + PAD,
-        y = y + 2,
+        y = y + row_y(ROWS.title) + 2,
         size = 12,
         bold = true,
         r = 255,
@@ -211,66 +203,107 @@ local function ensure_created()
 
     elements.auto = make_text('[ ] Auto-Translate Incoming', {
         x = x + PAD,
-        y = y + LINE_H * 1,
+        y = y + row_y(ROWS.auto),
         size = 11,
-        r = 200,
-        g = 220,
+        r = 180,
+        g = 210,
         b = 255,
     })
 
-    elements.lang = make_text('Language: Japanese', {
+    elements.lang = make_text('Language: Japanese (ja)  [click to cycle]', {
         x = x + PAD,
-        y = y + LINE_H * 2,
+        y = y + row_y(ROWS.lang),
         size = 11,
-        r = 200,
-        g = 255,
-        b = 200,
+        r = 180,
+        g = 240,
+        b = 180,
     })
 
-    elements.compose = make_text('Compose: (empty — //kb compose <text>)', {
+    elements.compose_label = make_text('COMPOSE  —  click box, then type', {
         x = x + PAD,
-        y = y + LINE_H * 3,
-        size = 10,
-        r = 210,
-        g = 210,
-        b = 210,
-    })
-
-    elements.buttons = make_text('[Translate & Send]  [Copy]  [Paste]  [Clear]', {
-        x = x + PAD,
-        y = y + LINE_H * 4,
+        y = y + row_y(ROWS.compose_label),
         size = 10,
         bold = true,
-        r = 120,
-        g = 220,
+        r = 140,
+        g = 160,
+        b = 190,
+    })
+
+    -- Shaded field = the actual type-in area
+    elements.compose = make_text('  (empty)', {
+        x = x + PAD,
+        y = y + row_y(ROWS.compose),
+        size = 11,
+        r = 240,
+        g = 240,
+        b = 245,
+        bg_alpha = 160,
+        bg_r = 30,
+        bg_g = 40,
+        bg_b = 60,
+        padding = FIELD_PAD,
+    })
+
+    elements.buttons = make_text('[Translate & Send]   [Copy]   [Paste]   [Clear]', {
+        x = x + PAD,
+        y = y + row_y(ROWS.buttons),
+        size = 10,
+        bold = true,
+        r = 100,
+        g = 230,
         b = 120,
     })
 
-    elements.channel = make_text('Send to: Say', {
+    elements.channel = make_text('Send to: Say  [click to cycle]', {
         x = x + PAD,
-        y = y + LINE_H * 5,
+        y = y + row_y(ROWS.channel),
         size = 11,
         r = 255,
-        g = 200,
-        b = 160,
+        g = 190,
+        b = 140,
     })
 
-    elements.tell = make_text('Tell target: (//kb tell <name>)', {
+    elements.tell_label = make_text('TELL NAME  —  click box, then type', {
         x = x + PAD,
-        y = y + LINE_H * 6,
+        y = y + row_y(ROWS.tell_label),
         size = 10,
-        r = 180,
-        g = 180,
-        b = 200,
+        bold = true,
+        r = 140,
+        g = 160,
+        b = 190,
+    })
+
+    elements.tell = make_text('  (empty)', {
+        x = x + PAD,
+        y = y + row_y(ROWS.tell),
+        size = 11,
+        r = 240,
+        g = 240,
+        b = 245,
+        bg_alpha = 160,
+        bg_r = 30,
+        bg_g = 40,
+        bg_b = 60,
+        padding = FIELD_PAD,
     })
 
     elements.status = make_text('Status: ready', {
         x = x + PAD,
-        y = y + LINE_H * 7,
+        y = y + row_y(ROWS.status),
         size = 10,
-        r = 160,
-        g = 255,
-        b = 160,
+        r = 140,
+        g = 230,
+        b = 150,
+    })
+
+    elements.hint = make_text('', {
+        x = x + PAD,
+        y = y + row_y(ROWS.hint),
+        size = 10,
+        bold = true,
+        r = 255,
+        g = 210,
+        b = 90,
     })
 
     rebuild_click_map()
@@ -290,7 +323,6 @@ local function apply_visibility(show)
             end
         end
     end
-    -- Hide tell line when channel is not tell (refresh handles text; visibility here is coarse)
 end
 
 function panel.bind_actions(action_table)
@@ -309,14 +341,17 @@ function panel.set_pos(x, y)
         elements.root:pos(x, y)
     end
     local offsets = {
-        title = 2,
-        auto = LINE_H * 1,
-        lang = LINE_H * 2,
-        compose = LINE_H * 3,
-        buttons = LINE_H * 4,
-        channel = LINE_H * 5,
-        tell = LINE_H * 6,
-        status = LINE_H * 7,
+        title = row_y(ROWS.title) + 2,
+        auto = row_y(ROWS.auto),
+        lang = row_y(ROWS.lang),
+        compose_label = row_y(ROWS.compose_label),
+        compose = row_y(ROWS.compose),
+        buttons = row_y(ROWS.buttons),
+        channel = row_y(ROWS.channel),
+        tell_label = row_y(ROWS.tell_label),
+        tell = row_y(ROWS.tell),
+        status = row_y(ROWS.status),
+        hint = row_y(ROWS.hint),
     }
     for name, oy in pairs(offsets) do
         if elements[name] then
@@ -337,6 +372,43 @@ function panel.is_visible()
     return visible
 end
 
+local function set_field_active(el, active)
+    if not el then
+        return
+    end
+    if active then
+        if el.bg_color then
+            el:bg_color(50, 70, 40)
+        end
+        if el.bg_alpha then
+            el:bg_alpha(200)
+        end
+        if el.color then
+            el:color(255, 245, 120)
+        end
+    else
+        if el.bg_color then
+            el:bg_color(30, 40, 60)
+        end
+        if el.bg_alpha then
+            el:bg_alpha(160)
+        end
+        if el.color then
+            el:color(240, 240, 245)
+        end
+    end
+end
+
+local function truncate(s, n)
+    if not s or s == '' then
+        return ''
+    end
+    if #s > n then
+        return s:sub(1, n - 3) .. '...'
+    end
+    return s
+end
+
 function panel.refresh(settings, state)
     settings_ref = settings or settings_ref
     state_ref = state or state_ref
@@ -347,54 +419,72 @@ function panel.refresh(settings, state)
 
     local s = settings_ref or {}
     local st = state_ref or {}
+    local mode = st.input_mode
 
     local auto_on = s.auto_translate and true or false
-    elements.auto:text((auto_on and '[x]' or '[ ]') .. ' Auto-Translate Incoming')
+    elements.auto:text((auto_on and '[x]' or '[ ]') .. ' Auto-Translate Incoming  [click]')
 
     local lang = (s.language or 'ja'):lower()
-    elements.lang:text('Language: ' .. controls.lang_name(lang) .. ' (' .. lang .. ')')
+    elements.lang:text('Language: ' .. controls.lang_name(lang) .. ' (' .. lang .. ')  [click to cycle]')
 
+    -- Compose field
     local compose = st.compose_buffer or ''
-    if compose == '' then
-        elements.compose:text('Compose: (empty — //kb compose <text>)')
+    if mode == 'compose' then
+        elements.compose_label:text('COMPOSE  ▶  TYPING NOW  (Enter = lock)')
+        local preview = compose ~= '' and compose or '…'
+        elements.compose:text('  ' .. truncate(preview, 48) .. '_')
+        set_field_active(elements.compose, true)
     else
-        local preview = compose
-        if #preview > 60 then
-            preview = preview:sub(1, 57) .. '...'
+        elements.compose_label:text('COMPOSE  —  click shaded box, then type')
+        if compose == '' then
+            elements.compose:text('  (click here to type your message)')
+        else
+            elements.compose:text('  ' .. truncate(compose, 50))
         end
-        elements.compose:text('Compose: ' .. preview)
+        set_field_active(elements.compose, false)
     end
 
-    -- Green translate + red utility hint via label text
-    elements.buttons:text('[Translate & Send]  [Copy]  [Paste]  [Clear]')
-    if elements.buttons.color then
-        elements.buttons:color(100, 220, 100)
-    end
+    elements.buttons:text('[Translate & Send]   [Copy]   [Paste]   [Clear]')
 
     local ch = (s.send_channel or 'say'):lower()
-    elements.channel:text('Send to: ' .. controls.channel_label(ch) .. '  (click to cycle)')
+    elements.channel:text('Send to: ' .. controls.channel_label(ch) .. '  [click to cycle]')
 
     if ch == 'tell' then
         local tgt = st.tell_target or ''
-        if tgt == '' then
-            elements.tell:text('Tell target: (set with //kb tell <name>)')
+        if mode == 'tell' then
+            elements.tell_label:text('TELL NAME  ▶  TYPING NOW  (Enter = lock)')
+            local live = tgt ~= '' and tgt or '…'
+            elements.tell:text('  ' .. truncate(live, 40) .. '_')
+            set_field_active(elements.tell, true)
         else
-            elements.tell:text('Tell target: ' .. tgt)
+            elements.tell_label:text('TELL NAME  —  click shaded box, then type')
+            if tgt == '' then
+                elements.tell:text('  (click here to type player name)')
+            else
+                elements.tell:text('  ' .. tgt)
+            end
+            set_field_active(elements.tell, false)
         end
+        elements.tell_label:show()
         elements.tell:show()
     else
+        elements.tell_label:text('')
         elements.tell:text('')
+        elements.tell_label:hide()
         elements.tell:hide()
     end
 
     local status = st.status_message or ''
-    if status == '' then
-        elements.status:text('Status: ready')
+    elements.status:text(status == '' and 'Status: ready' or ('Status: ' .. status))
+
+    if mode == 'compose' or mode == 'tell' then
+        elements.hint:text('>> Typing in Kotoba — Enter locks · Esc cancels')
+        elements.hint:show()
     else
-        elements.status:text('Status: ' .. status)
+        elements.hint:text('')
+        elements.hint:hide()
     end
 
-    -- Keep positions in sync
     local x, y = base_pos()
     panel.set_pos(x, y)
 end
@@ -405,6 +495,10 @@ function panel.show(settings, state)
     if not texts then
         visible = true
         return
+    end
+    -- Force recreate so layout upgrades apply after //lua reload
+    if created then
+        destroy_elements()
     end
     ensure_created()
     visible = true

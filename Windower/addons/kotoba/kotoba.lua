@@ -9,12 +9,11 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.0.0'
+_addon.version = '2.0.5'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
 local config = require('config')
-local files = require('files')
 
 local controls = require('ui/controls')
 local panel_ok, panel = pcall(require, 'ui/panel')
@@ -31,6 +30,20 @@ end
 local mouse_ok, mouse = pcall(require, 'ui/mouse')
 if not mouse_ok then
     mouse = { register = function() end }
+end
+
+-- In-panel typing: DIK → string buffer (Windower 4 has no ui.edit)
+local input_ok, kb_input = pcall(require, 'ui/input')
+if not input_ok then
+    kb_input = {
+        is_active = function() return false end,
+        start = function() end,
+        stop = function() end,
+        confirm = function() end,
+        handle_key = function() return false end,
+        get_buffer = function() return '' end,
+        set_buffer = function() end,
+    }
 end
 
 local defaults = {
@@ -55,6 +68,7 @@ local kotoba = {
 
     check_interval = 0.5,
     last_check = 0,
+    fast_poll_until = 0,
     heartbeat_interval = 5.0,
     last_heartbeat = 0,
 
@@ -65,6 +79,7 @@ local kotoba = {
     clipboard_buffer = '',
     tell_target = '',
     status_message = '',
+    input_mode = nil, -- nil | 'compose' | 'tell'
     player_name = nil,
 }
 
@@ -136,20 +151,29 @@ local function table_count(t)
     return count
 end
 
+local function ensure_file(absolute_path)
+    local f = io.open(absolute_path, 'a+')
+    if f then
+        f:close()
+        return true
+    end
+    return false
+end
+
 local function init_paths()
     local addon_path = windower.addon_path
     kotoba.queue_file = addon_path .. 'translation_queue.txt'
     kotoba.results_file = addon_path .. 'translation_results.txt'
     kotoba.heartbeat_file = addon_path .. 'heartbeat.txt'
 
-    local queue = files.new(kotoba.queue_file)
-    if not queue:exists() then
-        queue:create()
+    -- Do NOT use files.new() with absolute paths: Windower's files lib always
+    -- prefixes windower.addon_path again (libs/files.lua:24), which doubles the
+    -- path and makes io.open return nil → "attempt to index local 'fh'".
+    if not ensure_file(kotoba.queue_file) then
+        chat('ERROR: Could not create translation_queue.txt', 167)
     end
-
-    local results = files.new(kotoba.results_file)
-    if not results:exists() then
-        results:create()
+    if not ensure_file(kotoba.results_file) then
+        chat('ERROR: Could not create translation_results.txt', 167)
     end
 end
 
@@ -163,12 +187,16 @@ end
 
 local function spawn_translator()
     local translator_py = windower.addon_path .. 'translator.py'
-    local cmd = 'start "Kotoba" /B pythonw "' .. translator_py .. '"'
-    local success = os.execute(cmd .. ' >nul 2>&1')
+    -- /B = no new window; pythonw = no console
+    local cmd = 'start "KotobaTranslator" /B pythonw "' .. translator_py .. '"'
+    local success = os.execute(cmd)
 
     if not (success == 0 or success == true) then
-        local fallback = 'start "Kotoba" /min cmd /c python "' .. translator_py .. '"'
-        success = os.execute(fallback .. ' >nul 2>&1')
+        -- Last resort — still try to hide the window
+        local fallback =
+            'start "KotobaTranslator" /MIN powershell -NoLogo -NoProfile -WindowStyle Hidden '
+            .. '-Command "python \'' .. translator_py .. '\'"'
+        success = os.execute(fallback)
     end
 
     if success == 0 or success == true then
@@ -266,10 +294,27 @@ local function build_send_command(channel, translation, target)
     return nil
 end
 
+-- FFXI chat expects Shift-JIS. LLM results are UTF-8 — without this, Japanese shows as mojibake.
+local function to_game_text(utf8)
+    if not utf8 or utf8 == '' then
+        return utf8
+    end
+    if windower.to_shift_jis then
+        local ok, sjis = pcall(windower.to_shift_jis, utf8)
+        if ok and sjis and sjis ~= '' then
+            return sjis
+        end
+    end
+    return utf8
+end
+
 local function send_translation(channel, translation, target)
-    local cmd = build_send_command(channel, translation, target)
+    local game_text = to_game_text(translation)
+    local cmd = build_send_command(channel, game_text, target)
     if cmd then
+        -- send_command('input …') is more reliable than chat.input after we close chat
         windower.send_command(cmd)
+        debug('Sent: ' .. cmd:sub(1, 80))
     elseif channel == 'Tell' then
         chat('Tell requires a target name.', 167)
     end
@@ -284,10 +329,11 @@ end
 
 --[[
     Queue a translation request: id|src|tgt|escaped_text
+    Returns: 'sent' | 'queued' | 'error'
 ]]
 local function QueueTranslation(text, target_lang, source_lang, context, options)
     if not text or text == '' then
-        return
+        return 'error'
     end
 
     options = options or {}
@@ -299,8 +345,22 @@ local function QueueTranslation(text, target_lang, source_lang, context, options
 
         if options.auto_send and options.channel then
             send_translation(options.channel, translation, options.target)
+            set_status('Sent → ' .. tostring(options.channel))
+            return 'sent'
         end
-        return
+        set_status('Translated')
+        return 'sent'
+    end
+
+    -- Already waiting on the same outbound text — don't stack duplicate queues
+    if options.auto_send then
+        for id, pending in pairs(kotoba.pending_translations) do
+            if pending.cache_key == cache_key and pending.auto_send then
+                set_status('Still translating…')
+                chat('Already translating that — wait a moment (no need to click again).')
+                return 'queued'
+            end
+        end
     end
 
     local translation_id = os.time() .. '_' .. math.random(1000, 9999)
@@ -323,11 +383,19 @@ local function QueueTranslation(text, target_lang, source_lang, context, options
         file:write(line)
         file:close()
         debug('Queued: ' .. text:sub(1, 50))
-        set_status('Queued (' .. source_lang .. '→' .. target_lang .. ')')
-    else
-        chat('ERROR: Could not write to queue file!', 167)
-        set_status('Queue write failed')
+        if options.auto_send then
+            set_status('Translating… (sending when ready)')
+            -- Poll results hard for a few seconds so we don't sit on "queued"
+            kotoba.fast_poll_until = os.clock() + 8
+        else
+            set_status('Queued (' .. source_lang .. '→' .. target_lang .. ')')
+        end
+        return 'queued'
     end
+
+    chat('ERROR: Could not write to queue file!', 167)
+    set_status('Queue write failed')
+    return 'error'
 end
 
 local function CheckTranslationResults()
@@ -343,7 +411,13 @@ local function CheckTranslationResults()
         return
     end
 
+    -- Strip UTF-8 BOM if present
+    if content:sub(1, 3) == '\239\187\191' then
+        content = content:sub(4)
+    end
+
     local results = {}
+    local matched_ids = {}
     for line in content:gmatch('[^\r\n]+') do
         if line and line ~= '' then
             local id, translation = line:match('^([^|]+)|(.+)$')
@@ -353,6 +427,7 @@ local function CheckTranslationResults()
                     id = id,
                     translation = translation,
                 })
+                matched_ids[id] = true
             end
         end
     end
@@ -365,16 +440,29 @@ local function CheckTranslationResults()
 
             if pending.auto_send and pending.send_channel then
                 send_translation(pending.send_channel, result.translation, pending.send_target)
+                set_status('Sent → ' .. tostring(pending.send_channel))
+            else
+                set_status('Translated')
             end
 
             kotoba.pending_translations[result.id] = nil
-            set_status('Translated')
         end
     end
 
     if #results > 0 then
+        -- Rewrite results file keeping only unmatched leftover lines (if any)
+        local keep = {}
+        for line in content:gmatch('[^\r\n]+') do
+            local id = line:match('^([^|]+)|')
+            if id and not matched_ids[id] and line ~= '' then
+                table.insert(keep, line)
+            end
+        end
         local clear_file = io.open(kotoba.results_file, 'wb')
         if clear_file then
+            if #keep > 0 then
+                clear_file:write(table.concat(keep, '\n') .. '\n')
+            end
             clear_file:close()
         end
         panel.refresh(settings, kotoba)
@@ -428,8 +516,89 @@ local function clean_incoming_text(text)
 end
 
 --------------------------------------------------------------------------
--- Panel actions
+-- In-panel typing (Windower 4)
+-- texts cannot take focus; ui.edit is Windower 5 only.
+-- Pattern (xivcrossbar env_chooser, Issues#788): open chat so return-true
+-- blocks keys, capture DIK into our own buffer, draw it on the panel.
+-- Do NOT mirror get_input() — that path only kept the last letter for tell.
 --------------------------------------------------------------------------
+
+local function end_input_mode(keep_chat)
+    kotoba.input_mode = nil
+    if kb_input.is_active and kb_input.is_active() then
+        kb_input.stop(not keep_chat)
+    elseif not keep_chat and windower.chat and windower.chat.is_open and windower.chat.is_open() then
+        windower.send_command('setkey escape down; wait 0.05; setkey escape up')
+    end
+    panel.refresh(settings, kotoba)
+end
+
+local function on_kb_change(mode, buffer)
+    if mode == 'compose' then
+        kotoba.compose_buffer = buffer or ''
+    elseif mode == 'tell' then
+        local name = (buffer or ''):gsub('^/', ''):match('^(%S+)') or (buffer or '')
+        kotoba.tell_target = name
+    end
+    panel.refresh(settings, kotoba)
+end
+
+local function on_kb_confirm(mode, buffer)
+    kotoba.input_mode = nil
+    if mode == 'compose' then
+        kotoba.compose_buffer = buffer or ''
+        set_status('Compose ready')
+        chat('Compose set (' .. #(kotoba.compose_buffer or '') .. ' chars). Click Translate & Send.')
+    elseif mode == 'tell' then
+        local name = (buffer or ''):gsub('^/', ''):match('^(%S+)') or (buffer or '')
+        kotoba.tell_target = name
+        set_status('Tell → ' .. (name ~= '' and name or '?'))
+        chat('Tell target: ' .. (name ~= '' and name or '(empty)'))
+    end
+    panel.refresh(settings, kotoba)
+end
+
+local function on_kb_cancel()
+    kotoba.input_mode = nil
+    set_status('Edit cancelled')
+    panel.refresh(settings, kotoba)
+end
+
+local function begin_compose_input()
+    if kotoba.input_mode == 'compose' and kb_input.is_active() then
+        kb_input.confirm()
+        return
+    end
+    kotoba.input_mode = 'compose'
+    kb_input.start('compose', kotoba.compose_buffer or '', {
+        on_change = on_kb_change,
+        on_confirm = on_kb_confirm,
+        on_cancel = on_kb_cancel,
+    })
+    set_status('Type here — Enter locks, Esc cancels')
+    chat('Compose: type into Kotoba (keys go to the panel). Enter = lock, Esc = cancel.')
+    panel.refresh(settings, kotoba)
+end
+
+local function begin_tell_input()
+    if (settings.send_channel or ''):lower() ~= 'tell' then
+        settings.send_channel = 'tell'
+        config.save(settings)
+    end
+    if kotoba.input_mode == 'tell' and kb_input.is_active() then
+        kb_input.confirm()
+        return
+    end
+    kotoba.input_mode = 'tell'
+    kb_input.start('tell', kotoba.tell_target or '', {
+        on_change = on_kb_change,
+        on_confirm = on_kb_confirm,
+        on_cancel = on_kb_cancel,
+    })
+    set_status('Type name — Enter locks, Esc cancels')
+    chat('Tell: type the player name into Kotoba. Enter = lock, Esc = cancel.')
+    panel.refresh(settings, kotoba)
+end
 
 local function action_toggle_auto()
     settings.auto_translate = not settings.auto_translate
@@ -450,13 +619,23 @@ local function action_cycle_channel()
     config.save(settings)
     chat('Send channel: ' .. settings.send_channel)
     set_status('Channel → ' .. settings.send_channel)
+    if (settings.send_channel or ''):lower() == 'tell' and (not kotoba.tell_target or kotoba.tell_target == '') then
+        begin_tell_input()
+    else
+        panel.refresh(settings, kotoba)
+    end
 end
 
 local function action_translate_send()
+    -- Flush live keyboard buffer into compose if still editing
+    if kotoba.input_mode == 'compose' and kb_input.is_active() then
+        kotoba.compose_buffer = kb_input.get_buffer() or kotoba.compose_buffer
+    end
     local text = kotoba.compose_buffer or ''
     if text == '' then
-        chat('Compose is empty. Use //kb compose <text> first.', 167)
+        chat('Compose is empty. Click Compose, type into the panel, then Translate & Send.', 167)
         set_status('Compose empty')
+        begin_compose_input()
         return
     end
 
@@ -465,19 +644,35 @@ local function action_translate_send()
     local channel = normalize_channel(settings.send_channel) or 'Say'
     local target = nil
     if channel == 'Tell' then
+        if kotoba.input_mode == 'tell' and kb_input.is_active() then
+            local name = (kb_input.get_buffer() or ''):gsub('^/', ''):match('^(%S+)') or ''
+            if name ~= '' then
+                kotoba.tell_target = name
+            end
+        end
         target = kotoba.tell_target
         if not target or target == '' then
-            chat('Tell requires a target. Use //kb tell <name>.', 167)
+            chat('Tell requires a name. Click Tell target and type it into the panel.', 167)
             set_status('Need tell target')
+            begin_tell_input()
             return
         end
     end
 
-    QueueTranslation(text, target_lang, source_lang, 'Translate & Send', {
+    end_input_mode(false)
+
+    local result = QueueTranslation(text, target_lang, source_lang, 'Translate & Send', {
         auto_send = true,
         channel = channel,
         target = target,
     })
+    -- Status is set inside QueueTranslation (Sent / Translating… / error).
+    -- Do NOT overwrite with "Queued" — that made every send look unfinished.
+    if result == 'sent' then
+        chat('Sent to ' .. channel)
+    elseif result == 'queued' then
+        chat('Translating for ' .. channel .. ' — will send automatically (one click is enough).')
+    end
 end
 
 local function action_copy()
@@ -488,17 +683,22 @@ local function action_copy()
         return
     end
     kotoba.clipboard_buffer = text
-    -- Best-effort OS clipboard via PowerShell (Windower has no clipboard API)
+    -- Hidden window — plain os.execute(powershell) flashes a blank cmd on Windows
     local escaped = text:gsub("'", "''")
-    os.execute('powershell -NoProfile -Command "Set-Clipboard -Value \'' .. escaped .. '\'" >nul 2>&1')
+    os.execute(
+        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
+        .. '"Set-Clipboard -Value \'' .. escaped .. '\'"'
+    )
     chat('Copied compose buffer (' .. #text .. ' chars)')
     set_status('Copied')
 end
 
 local function read_os_clipboard()
-    -- Windower has no clipboard API; read via PowerShell into a temp file.
     local tmp = windower.addon_path .. 'clipboard_tmp.txt'
-    os.execute('powershell -NoProfile -Command "Get-Clipboard -Raw | Set-Content -Encoding utf8 -Path \'' .. tmp .. '\'" >nul 2>&1')
+    os.execute(
+        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
+        .. '"Get-Clipboard -Raw | Set-Content -Encoding utf8 -Path \'' .. tmp .. '\'"'
+    )
     local f = io.open(tmp, 'r')
     if not f then
         return nil
@@ -539,6 +739,7 @@ end
 
 local function action_clear()
     kotoba.compose_buffer = ''
+    end_input_mode(false)
     chat('Compose cleared')
     set_status('Cleared')
 end
@@ -556,6 +757,8 @@ local function bind_panel()
         copy = action_copy,
         paste = action_paste,
         clear = action_clear,
+        focus_compose = begin_compose_input,
+        focus_tell = begin_tell_input,
     })
     mouse.register(panel, save_panel_pos)
 end
@@ -587,16 +790,17 @@ local function print_help()
     chat('  //kb te <text> — Translate JA→EN')
     chat('  //kb send <channel> <text> — Translate to settings.language and send')
     chat('    Channels: say, party, tell, ls, ls2, shout, yell')
-    chat('  //kb compose <text> — Set compose buffer (shown on panel)')
+    chat('  //kb compose <text> — Set compose buffer (optional; prefer click Compose)')
     chat('  //kb channel <name> — Set default send channel')
     chat('  //kb cyclechannel — Cycle send channel')
     chat('  //kb lang <ja|en|es|fr|de|ko|zh> — Set target language')
     chat('  //kb cyclelang — Cycle target language')
-    chat('  //kb tell <name> — Set tell target')
+    chat('  //kb tell <name> — Set tell target (or click Tell target on panel)')
     chat('  //kb clear — Clear in-memory cache')
     chat('  //kb debug — Toggle debug mode')
     chat('  //kb help — Show this help')
-    chat('Panel: click Auto / Language / buttons / Send to; drag title to move.')
+    chat('Panel typing: click Compose → type into Kotoba → Enter to lock → Translate & Send.')
+    chat('Tell: cycle Send to Tell → click Tell target → type name → Enter to lock.')
 end
 
 local function print_status()
@@ -656,7 +860,12 @@ end)
 windower.register_event('prerender', function()
     local now = os.clock()
 
-    if now - kotoba.last_check >= kotoba.check_interval then
+    local interval = kotoba.check_interval
+    if kotoba.fast_poll_until and now < kotoba.fast_poll_until then
+        interval = 0.1
+    end
+
+    if now - kotoba.last_check >= interval then
         kotoba.last_check = now
         CheckTranslationResults()
     end
@@ -664,6 +873,24 @@ windower.register_event('prerender', function()
     if now - kotoba.last_heartbeat >= kotoba.heartbeat_interval then
         kotoba.last_heartbeat = now
         touch_heartbeat()
+    end
+
+    -- Soft chat maintain while editing (never force-reopen — that fights door menus)
+    if kb_input.tick then
+        kb_input.tick()
+    end
+end)
+
+-- Capture keys into Kotoba while compose/tell edit is active
+windower.register_event('keyboard', function(dik, down, flags, blocked)
+    if blocked then
+        return
+    end
+    if not kotoba.input_mode or not kb_input.is_active() then
+        return
+    end
+    if kb_input.handle_key(dik, down) then
+        return true
     end
 end)
 
