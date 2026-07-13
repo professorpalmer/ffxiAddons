@@ -1,0 +1,11 @@
+translator_config.txt
+translations.db
+translation_queue.txt
+translation_results.txt
+heartbeat.txt
+debug.log
+suggested_terms.log
+translator.lock
+clipboard_tmp.txt
+__pycache__/
+.codegraph/

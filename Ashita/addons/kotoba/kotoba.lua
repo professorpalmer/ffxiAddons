@@ -25,8 +25,8 @@
 
 addon.name      = 'kotoba';
 addon.author    = 'Zodiarchy @ Asura';
-addon.version   = '2.0';
-addon.desc      = 'Multi-language chat assistant with LLM translation';
+addon.version   = '2.0.1';
+addon.desc      = 'JP↔EN chat assistant with LLM translation (outbound multilang)';
 
 require('common');
 local ffi = require('ffi');
@@ -421,6 +421,17 @@ end
 * Reads translation results from file
 --]]
 local function CheckTranslationResults()
+    -- Drop zombie pendings so UI / chat cannot stick forever
+    local now_t = os.time();
+    for id, pending in pairs(kotoba.translation_pending) do
+        if pending.timestamp and (now_t - pending.timestamp) > 25 then
+            kotoba.translation_pending[id] = nil;
+            print('[Kotoba] Translation timed out. Try Translate & Send again.');
+            kotoba.status_message = 'Translate timed out';
+            kotoba.status_time = os.clock();
+        end
+    end
+
     local file = io.open(kotoba.translation_results_file, 'rb');
     if not file then
         return;
@@ -431,6 +442,11 @@ local function CheckTranslationResults()
     
     if not content or content == '' then
         return;
+    end
+
+    -- Strip UTF-8 BOM if present
+    if content:sub(1, 3) == '\239\187\191' then
+        content = content:sub(4);
     end
     
     local results = {};
@@ -454,53 +470,62 @@ local function CheckTranslationResults()
     for _, result in ipairs(results) do
         local pending = kotoba.translation_pending[result.id];
         if pending then
-            -- Cache the translation
-            kotoba.translation_cache[pending.cache_key] = result.translation;
-            
-            -- Print to game chat
-            print('[Kotoba] ' .. pending.context .. ': ' .. result.translation);
-            
-            -- Auto-send if requested
-            if pending.auto_send then
-                -- Use direct command execution instead of calling SendMessage
-                -- Convert UTF-8 to Shift-JIS
-                local sjis_text = UTF8ToShiftJIS(result.translation);
+            local translation = result.translation;
+
+            if translation:match('^__ERROR__') then
+                print('[Kotoba] Translation failed — check translator_config.txt / start_translator.bat.');
+                kotoba.status_message = 'Translate failed';
+                kotoba.status_time = os.clock();
+                kotoba.translation_pending[result.id] = nil;
+            else
+                -- Cache the translation
+                kotoba.translation_cache[pending.cache_key] = translation;
                 
-                -- Build command
-                local command = '';
-                local channel = pending.send_channel or 'Say';
+                -- Print to game chat
+                print('[Kotoba] ' .. pending.context .. ': ' .. translation);
                 
-                if channel == 'Say' then
-                    command = '/say ' .. sjis_text;
-                elseif channel == 'Party' then
-                    command = '/p ' .. sjis_text;
-                elseif channel == 'Tell' then
-                    if pending.send_target and pending.send_target ~= '' then
-                        command = '/tell ' .. pending.send_target .. ' ' .. sjis_text;
+                -- Auto-send if requested
+                if pending.auto_send then
+                    -- Use direct command execution instead of calling SendMessage
+                    -- Convert UTF-8 to Shift-JIS
+                    local sjis_text = UTF8ToShiftJIS(translation);
+                    
+                    -- Build command
+                    local command = '';
+                    local channel = pending.send_channel or 'Say';
+                    
+                    if channel == 'Say' then
+                        command = '/say ' .. sjis_text;
+                    elseif channel == 'Party' then
+                        command = '/p ' .. sjis_text;
+                    elseif channel == 'Tell' then
+                        if pending.send_target and pending.send_target ~= '' then
+                            command = '/tell ' .. pending.send_target .. ' ' .. sjis_text;
+                        else
+                            print('[Kotoba] Tell requires a target name.');
+                            command = nil;
+                        end
+                    elseif channel == 'Linkshell' then
+                        command = '/l ' .. sjis_text;
+                    elseif channel == 'Linkshell2' then
+                        command = '/l2 ' .. sjis_text;
+                    elseif channel == 'Shout' then
+                        command = '/sh ' .. sjis_text;
+                    elseif channel == 'Yell' then
+                        command = '/yell ' .. sjis_text;
                     else
-                        print('[Kotoba] Tell requires a target name.');
-                        command = nil;
+                        command = '/say ' .. sjis_text;
                     end
-                elseif channel == 'Linkshell' then
-                    command = '/l ' .. sjis_text;
-                elseif channel == 'Linkshell2' then
-                    command = '/l2 ' .. sjis_text;
-                elseif channel == 'Shout' then
-                    command = '/sh ' .. sjis_text;
-                elseif channel == 'Yell' then
-                    command = '/yell ' .. sjis_text;
-                else
-                    command = '/say ' .. sjis_text;
+                    
+                    -- Execute command
+                    if command then
+                        AshitaCore:GetChatManager():QueueCommand(1, command);
+                    end
                 end
                 
-                -- Execute command
-                if command then
-                    AshitaCore:GetChatManager():QueueCommand(1, command);
-                end
+                -- Remove from pending
+                kotoba.translation_pending[result.id] = nil;
             end
-            
-            -- Remove from pending
-            kotoba.translation_pending[result.id] = nil;
         end
     end
     
@@ -1036,10 +1061,68 @@ ashita.events.register('text_in', 'kotoba_text_in', function (e)
 end);
 
 --[[
+* Preflight + headless translator spawn (deferred off load to avoid hitch).
+--]]
+local translator_spawn_attempted = false;
+
+local function config_ready(kotoba_dir)
+    local cfg = kotoba_dir .. '\\translator_config.txt';
+    local f = io.open(cfg, 'r');
+    if not f then
+        return false, 'Missing translator_config.txt — run install.bat in the kotoba folder.';
+    end
+    local content = f:read('*a') or '';
+    f:close();
+    local key = content:match('LLM_API_KEY%s*=%s*([^\r\n]+)');
+    if not key then
+        return false, 'translator_config.txt needs LLM_API_KEY=... (see translator_config.example.txt).';
+    end
+    key = key:match('^%s*(.-)%s*$') or key;
+    if key == '' or key == 'your_api_key_here' then
+        return false, 'Set a real LLM_API_KEY in translator_config.txt before translating.';
+    end
+    return true, nil;
+end
+
+local function spawn_translator()
+    local install_path = AshitaCore:GetInstallPath();
+    local kotoba_dir = install_path .. '\\addons\\kotoba';
+    local translator_py = kotoba_dir .. '\\translator.py';
+
+    local ok, err = config_ready(kotoba_dir);
+    if not ok then
+        print('[Kotoba] ' .. err);
+        print('[Kotoba] Translator not started. Fix config, then /addon reload kotoba (or run start_translator.bat).');
+        return;
+    end
+
+    -- Prefer pythonw (no console). Fallback to minimized python.
+    local cmd = 'start "Kotoba" /B pythonw "' .. translator_py .. '"';
+    local success = os.execute(cmd .. ' >nul 2>&1');
+
+    if not (success == 0 or success == true) then
+        local cmd2 = 'start "Kotoba" /min cmd /c python "' .. translator_py .. '"';
+        success = os.execute(cmd2 .. ' >nul 2>&1');
+    end
+
+    if success == 0 or success == true then
+        print('[Kotoba] Translator spawn requested (headless).');
+    else
+        print('[Kotoba] Could not auto-start translator. Run start_translator.bat manually.');
+    end
+end
+
+--[[
 * event: d3d_present
 * desc : Event called when the Direct3D device is presenting a scene.
 --]]
 ashita.events.register('d3d_present', 'kotoba_present', function ()
+    -- Defer spawn off load so /addon load stays snappy
+    if not translator_spawn_attempted then
+        translator_spawn_attempted = true;
+        spawn_translator();
+    end
+
     RenderWindow();
     
     -- Check for translation results periodically
@@ -1110,38 +1193,13 @@ end);
 
 --[[
 * event: load
-* desc : Event called when the addon is loaded. Spawns the translator headlessly.
+* desc : Lightweight load — defer translator spawn to first present tick.
 --]]
 ashita.events.register('load', 'kotoba_load', function ()
-    local install_path = AshitaCore:GetInstallPath();
-    local kotoba_dir = install_path .. '\\addons\\kotoba';
-    local translator_py = kotoba_dir .. '\\translator.py';
-
-    -- Use pythonw.exe for headless (no console window)
-    -- Falls back to python.exe if pythonw not available
-    local python_exe = 'pythonw';
-    local cmd = 'start "Kotoba" /B ' .. python_exe .. ' "' .. translator_py .. '"';
-
-    local success = os.execute(cmd .. ' >nul 2>&1');
-    
-    if not (success == 0 or success == true) then
-        -- Fallback: try python.exe minimized
-        local cmd2 = 'start "Kotoba" /min cmd /c python "' .. translator_py .. '"';
-        success = os.execute(cmd2 .. ' >nul 2>&1');
-    end
-
-    if success == 0 or success == true then
-        print('[Kotoba] Translator running headlessly in background.');
-    else
-        print('[Kotoba] Note: Could not auto-start translator.');
-        print('[Kotoba] Run start_translator.bat manually if needed.');
-    end
+    translator_spawn_attempted = false;
+    print('[Kotoba v' .. addon.version .. '] ready. /kotoba or /kb to toggle window.');
 end);
 
--- Print loaded message
-print('[Kotoba v2.0] Loaded! Multi-language chat assistant ready.');
-print('[Kotoba] Use /kotoba or /kb to toggle window.');
-print('[Kotoba] Translations appear in GAME CHAT with perfect Japanese rendering!');
-print('[Kotoba] Enable "Auto-Translate Incoming" to translate Japanese messages to English automatically.');
-
+-- Print loaded message (kept short — spawn happens on first present)
+print('[Kotoba] Incoming auto-translate: Japanese → English. Outbound compose: multilang picker.');
 

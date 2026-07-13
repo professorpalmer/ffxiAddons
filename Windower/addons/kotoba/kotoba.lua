@@ -9,7 +9,7 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.0.9'
+_addon.version = '2.1.0'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
@@ -188,12 +188,42 @@ local function touch_heartbeat()
     end
 end
 
+local function config_ready()
+    local cfg = windower.addon_path .. 'translator_config.txt'
+    local f = io.open(cfg, 'r')
+    if not f then
+        return false, 'Missing translator_config.txt — run install.bat in the kotoba folder.'
+    end
+    local content = f:read('*a') or ''
+    f:close()
+    local key = content:match('LLM_API_KEY%s*=%s*([^\r\n]+)')
+    if not key then
+        return false, 'translator_config.txt needs LLM_API_KEY=... (see example).'
+    end
+    key = key:match('^%s*(.-)%s*$') or key
+    if key == '' or key == 'your_api_key_here' then
+        return false, 'Set a real LLM_API_KEY in translator_config.txt before translating.'
+    end
+    return true, nil
+end
+
 local function spawn_translator()
     -- Fast path: lock-file singleton inside translator.py kills stale siblings.
     -- Do NOT run PowerShell process scans here — that freezes the game on load.
+    local ok_cfg, err = config_ready()
+    if not ok_cfg then
+        chat(err, 167)
+        chat('Translator not started. Fix config, then //lua r kotoba (or start_translator.bat).', 167)
+        return
+    end
+
     local translator_py = windower.addon_path .. 'translator.py'
     local cmd = 'start "KotobaTranslator" /B pythonw "' .. translator_py .. '"'
     local ok = os.execute(cmd)
+    if not (ok == 0 or ok == true) then
+        local fallback = 'start "KotobaTranslator" /MIN cmd /c python "' .. translator_py .. '"'
+        ok = os.execute(fallback)
+    end
     if not (ok == 0 or ok == true) then
         chat('Could not auto-start translator. Run start_translator.bat if needed.', 167)
     end
@@ -915,6 +945,21 @@ end)
 windower.register_event('keyboard', function(dik, down, flags, blocked)
     if blocked then
         return
+    end
+    -- Esc closes open dropdowns even when not typing
+    if down and dik == 1 and panel.close_dropdowns then
+        local dds = panel.get_dropdowns and panel.get_dropdowns() or {}
+        local any_open = false
+        for _, dd in ipairs(dds) do
+            if dd and dd.open then
+                any_open = true
+                break
+            end
+        end
+        if any_open then
+            panel.close_dropdowns()
+            return true
+        end
     end
     if not kotoba.input_mode or not kb_input.is_active() then
         return

@@ -28,7 +28,7 @@ Final Result:  "Wanna do Sortie?"
 
 ## File Format
 
-**Location**: `C:\Ashita\addons\kotoba\ffxi_glossary.txt`
+**Location**: `<Ashita or Windower>\addons\kotoba\ffxi_glossary.txt`
 
 **Format**: One term per line, `Japanese|English`
 
@@ -213,9 +213,9 @@ Some terms have multiple meanings. Pick the most common:
 
 1. Add a term to `ffxi_glossary.txt`
 2. Save the file
-3. Use `/kotoba` in-game
-4. Type the Japanese text in the input box
-5. Click "Translate & Send"
+3. Open Kotoba in-game (`/kotoba` on Ashita, `//kb` on Windower)
+4. Type the Japanese text in the compose box
+5. Click Translate & Send / Send
 6. Check if it translates correctly!
 
 ---
