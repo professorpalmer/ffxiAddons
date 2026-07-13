@@ -6,6 +6,7 @@ Ashita/addons/kotoba/translation_results.txt
 Ashita/addons/kotoba/heartbeat.txt
 Ashita/addons/kotoba/debug.log
 Ashita/addons/kotoba/suggested_terms.log
+Ashita/addons/kotoba/translator.lock
 Ashita/addons/kotoba/.codegraph/
 Windower/addons/kotoba/translator_config.txt
 Windower/addons/kotoba/translations.db
@@ -15,6 +16,7 @@ Windower/addons/kotoba/heartbeat.txt
 Windower/addons/kotoba/debug.log
 Windower/addons/kotoba/suggested_terms.log
 Windower/addons/kotoba/clipboard_tmp.txt
+Windower/addons/kotoba/translator.lock
 Windower/addons/kotoba/__pycache__/
 artifacts/
 _vendor/

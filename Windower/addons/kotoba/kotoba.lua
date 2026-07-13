@@ -9,7 +9,7 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.0.5'
+_addon.version = '2.0.6'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
@@ -187,12 +187,18 @@ end
 
 local function spawn_translator()
     local translator_py = windower.addon_path .. 'translator.py'
+    -- Kill zombie kotoba pythonw processes (they steal queue jobs and never reply)
+    os.execute(
+        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
+        .. '"Get-CimInstance Win32_Process | Where-Object { '
+        .. '($_.Name -match \'pythonw?\.exe\') -and ($_.CommandLine -match \'kotoba.+translator\.py\') } '
+        .. '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"'
+    )
     -- /B = no new window; pythonw = no console
     local cmd = 'start "KotobaTranslator" /B pythonw "' .. translator_py .. '"'
     local success = os.execute(cmd)
 
     if not (success == 0 or success == true) then
-        -- Last resort — still try to hide the window
         local fallback =
             'start "KotobaTranslator" /MIN powershell -NoLogo -NoProfile -WindowStyle Hidden '
             .. '-Command "python \'' .. translator_py .. '\'"'
@@ -356,9 +362,14 @@ local function QueueTranslation(text, target_lang, source_lang, context, options
     if options.auto_send then
         for id, pending in pairs(kotoba.pending_translations) do
             if pending.cache_key == cache_key and pending.auto_send then
-                set_status('Still translating…')
-                chat('Already translating that — wait a moment (no need to click again).')
-                return 'queued'
+                local age = os.time() - (pending.timestamp or os.time())
+                if age < 20 then
+                    set_status('Still translating… (' .. age .. 's)')
+                    return 'queued'
+                end
+                -- Stale pending — drop and re-queue
+                kotoba.pending_translations[id] = nil
+                chat('Previous translate timed out — retrying.', 167)
             end
         end
     end
@@ -399,6 +410,16 @@ local function QueueTranslation(text, target_lang, source_lang, context, options
 end
 
 local function CheckTranslationResults()
+    -- Drop zombie pendings so UI cannot stick on "Still translating…"
+    local now_t = os.time()
+    for id, pending in pairs(kotoba.pending_translations) do
+        if pending.timestamp and (now_t - pending.timestamp) > 25 then
+            kotoba.pending_translations[id] = nil
+            set_status('Translate timed out')
+            chat('Translation timed out. Click Translate & Send again.', 167)
+        end
+    end
+
     local file = io.open(kotoba.results_file, 'rb')
     if not file then
         return
@@ -435,17 +456,24 @@ local function CheckTranslationResults()
     for _, result in ipairs(results) do
         local pending = kotoba.pending_translations[result.id]
         if pending then
-            kotoba.translation_cache[pending.cache_key] = result.translation
-            chat(pending.context .. ': ' .. result.translation)
-
-            if pending.auto_send and pending.send_channel then
-                send_translation(pending.send_channel, result.translation, pending.send_target)
-                set_status('Sent → ' .. tostring(pending.send_channel))
+            local translation = result.translation
+            if translation:match('^__ERROR__') then
+                chat('Translation failed — try again (or //kb status).', 167)
+                set_status('Translate failed')
+                kotoba.pending_translations[result.id] = nil
             else
-                set_status('Translated')
-            end
+                kotoba.translation_cache[pending.cache_key] = translation
+                chat(pending.context .. ': ' .. translation)
 
-            kotoba.pending_translations[result.id] = nil
+                if pending.auto_send and pending.send_channel then
+                    send_translation(pending.send_channel, translation, pending.send_target)
+                    set_status('Sent → ' .. tostring(pending.send_channel))
+                else
+                    set_status('Translated')
+                end
+
+                kotoba.pending_translations[result.id] = nil
+            end
         end
     end
 

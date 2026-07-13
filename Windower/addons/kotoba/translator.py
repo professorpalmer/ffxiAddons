@@ -47,9 +47,39 @@ COMMUNITY_GLOSSARY_FILE = SCRIPT_DIR / "ffxi_glossary.txt"
 SUGGESTED_TERMS_FILE = SCRIPT_DIR / "suggested_terms.log"
 HEARTBEAT_FILE = SCRIPT_DIR / "heartbeat.txt"
 DB_FILE = SCRIPT_DIR / "translations.db"
+LOCK_FILE = SCRIPT_DIR / "translator.lock"
 
 # Auto-shutdown: if no heartbeat for this many seconds, exit
 HEARTBEAT_TIMEOUT = 30
+
+# Instant EN→JA greets (no LLM) — keeps casual chat snappy
+FAST_PHRASES = {
+    ('en', 'ja'): {
+        'hey': 'おい',
+        'hi': 'やあ',
+        'hello': 'こんにちは',
+        'hey guys': 'みんなー',
+        'hey everyone': 'みんなー',
+        'hey all': 'みんなー',
+        "what's up": '元気？',
+        "whats up": '元気？',
+        "what are you up to": '今何してる？',
+        "what are you up to?": '今何してる？',
+        'hey what are you up to?': '今何してる？',
+        'good game': 'おつ',
+        'gg': 'おつ',
+        'thanks': 'ありがとう',
+        'ty': 'あざす',
+        'np': 'いえいえ',
+        'ready': '準備OK',
+        'ready?': '準備できた？',
+        'brb': 'ちょっと待って',
+        'afk': '離席',
+        'lol': 'www',
+        'ok': 'おけ',
+        'okay': 'おけ',
+    },
+}
 
 # Defaults
 LLM_API_KEY = None
@@ -899,6 +929,15 @@ def call_llm(text, source_lang, target_lang):
 
 def translate_text(text, source_lang, target_lang):
     """Translate text using LLM with SQLite caching and gaming context"""
+    # Lightning path: known short phrases (no network)
+    bucket = FAST_PHRASES.get((source_lang, target_lang))
+    if bucket:
+        hit_fast = bucket.get(text.strip().lower())
+        if hit_fast:
+            print(f"[Kotoba Translator] Fast phrase: {text[:40]} -> {hit_fast}")
+            store_translation(text, source_lang, target_lang, hit_fast)
+            return hit_fast
+
     cached, hit = get_cached_translation(text, source_lang, target_lang)
     if hit:
         if output_looks_wrong_language(cached, target_lang) or re.search(
@@ -1012,11 +1051,18 @@ def process_queue():
                 if translation:
                     translation = translation.replace('|', '\\|')
                     results.append(f"{translation_id}|{translation}\n")
+                else:
+                    # Always ack the addon — silent None left Lua stuck on "Still translating…"
+                    results.append(f"{translation_id}|__ERROR__|translation_failed\n")
 
             except Exception as e:
                 print(f"[Kotoba Translator] Error processing line: {e}")
                 import traceback
                 traceback.print_exc()
+                # Best-effort id extract so Lua can unblock
+                maybe_id = line.split('|', 1)[0].strip() if '|' in line else ''
+                if maybe_id:
+                    results.append(f"{maybe_id}|__ERROR__|exception\n")
 
         if results:
             with open(RESULTS_FILE, 'a', encoding='utf-8') as f:
@@ -1097,12 +1143,60 @@ def check_heartbeat():
     except Exception:
         return True
 
+def _pid_alive(pid):
+    if not pid or pid <= 0:
+        return False
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, int(pid))
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    except Exception:
+        return False
+
+def acquire_singleton_lock():
+    """Ensure only one live translator owns the queue (kill stale sibling first)."""
+    if LOCK_FILE.exists():
+        try:
+            old_pid = int(LOCK_FILE.read_text(encoding='utf-8').strip().split()[0])
+        except Exception:
+            old_pid = None
+        if old_pid and old_pid != os.getpid() and _pid_alive(old_pid):
+            print(f"[Kotoba Translator] Stopping stale translator pid {old_pid}")
+            try:
+                import ctypes
+                handle = ctypes.windll.kernel32.OpenProcess(1, 0, int(old_pid))  # TERMINATE
+                if handle:
+                    ctypes.windll.kernel32.TerminateProcess(handle, 0)
+                    ctypes.windll.kernel32.CloseHandle(handle)
+                time.sleep(0.25)
+            except Exception as e:
+                print(f"[Kotoba Translator] Could not stop pid {old_pid}: {e}")
+    try:
+        LOCK_FILE.write_text(str(os.getpid()), encoding='utf-8')
+    except Exception as e:
+        print(f"[Kotoba Translator] Warning: could not write lock file: {e}")
+
+def release_singleton_lock():
+    try:
+        if LOCK_FILE.exists():
+            cur = LOCK_FILE.read_text(encoding='utf-8').strip()
+            if cur == str(os.getpid()):
+                LOCK_FILE.unlink()
+    except Exception:
+        pass
+
 # ============================================================================
 # MAIN
 # ============================================================================
 
 def main():
     """Main loop"""
+    acquire_singleton_lock()
     print("\n" + "=" * 60)
     print("  KOTOBA TRANSLATOR - LLM EDITION")
     print("=" * 60)
@@ -1118,6 +1212,7 @@ def main():
     print("    - 500+ built-in FFXI terms")
     print("    - Hot-reload community glossary")
     print("    - SQLite durable cache (sub-ms lookups)")
+    print("    - Fast phrasebook for common greets")
     print("    - LLM-powered natural translation")
     print("    - Untranslated term detection")
     print("    - Casual tone post-processing")
@@ -1159,13 +1254,15 @@ def main():
                         HEARTBEAT_FILE.unlink()
                     except Exception:
                         pass
+                    release_singleton_lock()
                     sys.exit(0)
 
-            time.sleep(0.5)
+            time.sleep(0.15)
 
     except KeyboardInterrupt:
         print("\n[Kotoba Translator] Stopping...")
         print_stats()
+        release_singleton_lock()
         sys.exit(0)
 
 if __name__ == "__main__":

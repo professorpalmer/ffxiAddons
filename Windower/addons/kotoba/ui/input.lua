@@ -2,13 +2,10 @@
     Kotoba in-panel text input for Windower 4
 
     Capture DIK → buffer → panel caret; return true to consume keys.
-    Key-blocking only works while game chat is open (Windower/Issues#788).
+    Key-blocking via return-true only works while chat is open (Issues#788).
 
-    Open chat safely:
-      1) Escape once to dismiss door/NPC menus (Enter would confirm them)
-      2) Enter once to open chat
-      3) NEVER re-open in a loop (that caused menu flash)
-    Swallow Escape/Enter during the open sequence so we don't self-cancel.
+    Also temporarily bind movement/letter keys to a no-op while editing, so
+    WASD cannot move the character even if chat briefly closes.
 ]]
 
 local input = {}
@@ -32,6 +29,14 @@ local KEYMAP = {
     [57] = { ' ', ' ' },
 }
 
+-- Keys that must not reach the game while typing (movement + letters)
+local SUPPRESS_KEYS = {
+    'w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'c', 'v', 'f', 'r', 't', 'g', 'b', 'n',
+    'h', 'j', 'k', 'l', 'y', 'u', 'i', 'o', 'p', 'm',
+    'numpad2', 'numpad4', 'numpad6', 'numpad8',
+    'up', 'down', 'left', 'right',
+}
+
 local BACKSPACE = 14
 local ENTER = 28
 local NUMPAD_ENTER = 156
@@ -49,6 +54,8 @@ local on_confirm = nil
 local on_cancel = nil
 local ignore_keys_until = 0
 local we_opened_chat = false
+local keys_suppressed = false
+local last_reopen = 0
 
 local function chat_open()
     if windower.chat and windower.chat.is_open then
@@ -64,19 +71,46 @@ local function clear_chat_input()
     end
 end
 
+local function suppress_game_keys(enable)
+    if enable and not keys_suppressed then
+        for _, key in ipairs(SUPPRESS_KEYS) do
+            -- wait = no-op; prevents default game bind for this key while editing
+            windower.send_command('bind ' .. key .. ' wait')
+        end
+        keys_suppressed = true
+    elseif (not enable) and keys_suppressed then
+        for _, key in ipairs(SUPPRESS_KEYS) do
+            windower.send_command('unbind ' .. key)
+        end
+        keys_suppressed = false
+    end
+end
+
 local function open_chat_for_typing()
     if chat_open() then
         clear_chat_input()
         return false
     end
-    -- Swallow the Escape/Enter we are about to synthesize (prevents Edit cancelled)
     ignore_keys_until = os.clock() + 0.70
-    -- Escape dismisses door/NPC menus first; Enter then opens chat (not the menu)
+    last_reopen = os.clock()
+    -- Escape clears menus first; Enter opens chat (Issues#788 needs chat open)
     windower.send_command(
         'setkey escape down; wait 0.06; setkey escape up; wait 0.10; '
         .. 'setkey enter down; wait 0.05; setkey enter up'
     )
     return true
+end
+
+local function reopen_chat_soft()
+    local now = os.clock()
+    if now - last_reopen < 0.9 then
+        return
+    end
+    last_reopen = now
+    ignore_keys_until = now + 0.35
+    -- Enter only — do not Esc-spam (that fought door menus)
+    windower.send_command('setkey enter down; wait 0.05; setkey enter up')
+    we_opened_chat = true
 end
 
 local function close_chat_gently()
@@ -117,7 +151,7 @@ function input.start(new_mode, initial, callbacks)
     on_confirm = callbacks and callbacks.on_confirm or nil
     on_cancel = callbacks and callbacks.on_cancel or nil
 
-    -- Arm ignore BEFORE active so synthetic Escape cannot cancel us
+    suppress_game_keys(true)
     we_opened_chat = open_chat_for_typing()
     active = true
     clear_chat_input()
@@ -127,6 +161,7 @@ end
 function input.stop(close_chat)
     active = false
     mode = nil
+    suppress_game_keys(false)
     if close_chat and we_opened_chat then
         close_chat_gently()
     end
@@ -149,9 +184,13 @@ function input.cancel()
     end
 end
 
--- Clear leaked chat text only — NEVER re-open (re-open fought door menus)
 function input.tick()
-    if not active or not chat_open() then
+    if not active then
+        return
+    end
+    -- Keep chat open so return-true blocks; binds cover movement if it flaps
+    if not chat_open() then
+        reopen_chat_soft()
         return
     end
     if windower.chat and windower.chat.get_input then
@@ -179,7 +218,6 @@ function input.handle_key(dik, down)
         return true
     end
 
-    -- Swallow synthetic open/close keys
     if os.clock() < ignore_keys_until then
         return true
     end
