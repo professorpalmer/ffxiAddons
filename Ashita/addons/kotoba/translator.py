@@ -23,6 +23,7 @@ import time
 import sys
 import re
 import sqlite3
+import unicodedata
 from pathlib import Path
 from datetime import datetime
 
@@ -59,10 +60,22 @@ def load_config():
     """Load LLM configuration from translator_config.txt"""
     global LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 
+    example = SCRIPT_DIR / "translator_config.example.txt"
     if not CONFIG_FILE.exists():
         print(f"[Kotoba Translator] ERROR: Config file not found: {CONFIG_FILE}")
-        print(f"[Kotoba Translator] Create it with: LLM_API_KEY=your_key_here")
+        if example.exists():
+            print(f"[Kotoba Translator] Copy the example and add your key:")
+            print(f"[Kotoba Translator]   copy {example.name} {CONFIG_FILE.name}")
+        else:
+            print(f"[Kotoba Translator] Create it with: LLM_API_KEY=your_key_here")
         sys.exit(1)
+
+    placeholder_keys = {
+        'your_api_key_here',
+        'INSERT_YOUR_API_KEY_HERE',
+        'YOUR_API_KEY_HERE',
+        'sk-or-v1-REPLACE_ME',
+    }
 
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -81,7 +94,7 @@ def load_config():
                     elif key == 'LLM_MODEL':
                         LLM_MODEL = value
 
-        if not LLM_API_KEY or LLM_API_KEY in ('your_api_key_here', 'INSERT_YOUR_API_KEY_HERE'):
+        if not LLM_API_KEY or LLM_API_KEY in placeholder_keys:
             print("[Kotoba Translator] ERROR: LLM_API_KEY not set in config")
             print(f"[Kotoba Translator] Edit: {CONFIG_FILE}")
             sys.exit(1)
@@ -128,6 +141,42 @@ Assistant: Haste pls"""
 # SQLITE CACHE
 # ============================================================================
 
+# Punctuation / whitespace variants that should share a cache entry
+_PUNCT_MAP = str.maketrans({
+    '！': '!',
+    '？': '?',
+    '。': '.',
+    '、': ',',
+    '｡': '.',
+    '､': ',',
+    '･': '・',
+    '～': '~',
+    '〜': '~',
+    '―': '-',
+    '‐': '-',
+    '‑': '-',
+    '–': '-',
+    '—': '-',
+    '　': ' ',  # ideographic space
+    '\u200b': '',  # zero-width space
+    '\ufeff': '',  # BOM
+})
+
+
+def normalize_cache_key(text):
+    """Normalize text so trivial variants hit the same cache entry.
+
+    Handles fullwidth/halfwidth (NFKC), JP/EN punctuation variants,
+    and collapsed whitespace — without changing Japanese word content.
+    """
+    if not text:
+        return ''
+    text = unicodedata.normalize('NFKC', text)
+    text = text.translate(_PUNCT_MAP)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
 def init_db():
     """Initialize SQLite database and create tables if needed."""
     conn = sqlite3.connect(str(DB_FILE))
@@ -145,23 +194,80 @@ def init_db():
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_last_used ON translations(last_used)")
     conn.commit()
+    migrated = migrate_normalize_cache_keys(conn)
     conn.close()
     print(f"[Kotoba Translator] SQLite cache initialized: {DB_FILE}")
+    if migrated:
+        print(f"[Kotoba Translator] Migrated {migrated} cache key(s) to normalized form")
+
+
+def migrate_normalize_cache_keys(conn):
+    """Rewrite existing rows onto normalized keys; merge collisions by usage."""
+    rows = conn.execute(
+        "SELECT source_text, source_lang, target_lang, translated_text, "
+        "usage_count, last_used, created_at FROM translations"
+    ).fetchall()
+
+    changed = 0
+    for source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at in rows:
+        key = normalize_cache_key(source_text)
+        if key == source_text:
+            continue
+
+        changed += 1
+        conn.execute(
+            "DELETE FROM translations WHERE source_text=? AND source_lang=? AND target_lang=?",
+            (source_text, source_lang, target_lang)
+        )
+        existing = conn.execute(
+            "SELECT usage_count, last_used, created_at, translated_text "
+            "FROM translations WHERE source_text=? AND source_lang=? AND target_lang=?",
+            (key, source_lang, target_lang)
+        ).fetchone()
+
+        if existing:
+            old_usage, old_last, old_created, old_translated = existing
+            created_vals = [x for x in (old_created, created_at) if x is not None]
+            conn.execute(
+                "UPDATE translations SET usage_count=?, last_used=?, created_at=?, translated_text=? "
+                "WHERE source_text=? AND source_lang=? AND target_lang=?",
+                (
+                    (old_usage or 0) + (usage_count or 0),
+                    max(old_last or 0, last_used or 0),
+                    min(created_vals) if created_vals else None,
+                    # Prefer the more-used translation
+                    translated_text if (usage_count or 0) >= (old_usage or 0) else old_translated,
+                    key, source_lang, target_lang,
+                )
+            )
+        else:
+            conn.execute(
+                "INSERT INTO translations "
+                "(source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (key, source_lang, target_lang, translated_text, usage_count or 0, last_used, created_at)
+            )
+
+    if changed:
+        conn.commit()
+    return changed
+
 
 def get_cached_translation(source_text, source_lang, target_lang):
     """Check SQLite cache for a translation. Returns (translation, hit_bool)."""
+    key = normalize_cache_key(source_text)
     conn = sqlite3.connect(str(DB_FILE))
     try:
         cursor = conn.execute(
             "SELECT translated_text FROM translations WHERE source_text=? AND source_lang=? AND target_lang=?",
-            (source_text, source_lang, target_lang)
+            (key, source_lang, target_lang)
         )
         row = cursor.fetchone()
         if row:
-            # Update usage stats
             conn.execute(
-                "UPDATE translations SET usage_count=usage_count+1, last_used=? WHERE source_text=? AND source_lang=? AND target_lang=?",
-                (time.time(), source_text, source_lang, target_lang)
+                "UPDATE translations SET usage_count=usage_count+1, last_used=? "
+                "WHERE source_text=? AND source_lang=? AND target_lang=?",
+                (time.time(), key, source_lang, target_lang)
             )
             conn.commit()
             return row[0], True
@@ -169,18 +275,28 @@ def get_cached_translation(source_text, source_lang, target_lang):
     finally:
         conn.close()
 
+
 def store_translation(source_text, source_lang, target_lang, translated_text):
-    """Store a translation in the SQLite cache."""
+    """Store a translation in the SQLite cache without resetting usage_count."""
+    key = normalize_cache_key(source_text)
     conn = sqlite3.connect(str(DB_FILE))
     try:
         now = time.time()
         conn.execute(
-            "INSERT OR REPLACE INTO translations (source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
-            (source_text, source_lang, target_lang, translated_text, now, now)
+            """
+            INSERT INTO translations
+                (source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at)
+            VALUES (?, ?, ?, ?, 1, ?, ?)
+            ON CONFLICT(source_text, source_lang, target_lang) DO UPDATE SET
+                translated_text = excluded.translated_text,
+                last_used = excluded.last_used
+            """,
+            (key, source_lang, target_lang, translated_text, now, now)
         )
         conn.commit()
     finally:
         conn.close()
+
 
 def get_cache_size():
     """Return the number of cached translations."""

@@ -1,0 +1,9 @@
+# Kotoba secrets + runtime artifacts
+Ashita/addons/kotoba/translator_config.txt
+Ashita/addons/kotoba/translations.db
+Ashita/addons/kotoba/translation_queue.txt
+Ashita/addons/kotoba/translation_results.txt
+Ashita/addons/kotoba/heartbeat.txt
+Ashita/addons/kotoba/debug.log
+Ashita/addons/kotoba/suggested_terms.log
+Ashita/addons/kotoba/.codegraph/

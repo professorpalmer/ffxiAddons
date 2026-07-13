@@ -1,19 +1,55 @@
 #!/usr/bin/env python3
 """
 Kotoba Seed Database Builder
-Reads ffxi_glossary.txt and pre-baked common phrases to populate translations.db
-with a warm cache. Run once on install or when you want to rebuild the cache.
+Pre-loads translations.db with common *full chat phrases* for a warm cache.
+
+Glossary terms (ffxi_glossary.txt) are intentionally NOT seeded here — they are
+word/phrase fragments used during preprocess, not complete chat messages. Seeding
+them as full-message translations caused odd hits when someone typed just a term.
 """
 
+import re
 import sqlite3
 import time
+import unicodedata
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 DB_FILE = SCRIPT_DIR / "translations.db"
-GLOSSARY_FILE = SCRIPT_DIR / "ffxi_glossary.txt"
 
-# Pre-baked common FFXI phrases (JP -> EN)
+# Punctuation / whitespace variants that should share a cache entry
+_PUNCT_MAP = str.maketrans({
+    '！': '!',
+    '？': '?',
+    '。': '.',
+    '、': ',',
+    '｡': '.',
+    '､': ',',
+    '･': '・',
+    '～': '~',
+    '〜': '~',
+    '―': '-',
+    '‐': '-',
+    '‑': '-',
+    '–': '-',
+    '—': '-',
+    '　': ' ',
+    '\u200b': '',
+    '\ufeff': '',
+})
+
+
+def normalize_cache_key(text):
+    """Same normalization as translator.py so seeds hit at runtime."""
+    if not text:
+        return ''
+    text = unicodedata.normalize('NFKC', text)
+    text = text.translate(_PUNCT_MAP)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+# Pre-baked common FFXI phrases (JP -> EN) — full messages only
 SEED_PHRASES = {
     # Greetings
     "こんにちは": "hi",
@@ -180,61 +216,33 @@ def init_db(conn):
     conn.commit()
 
 
-def load_glossary_file():
-    """Load JP|EN pairs from ffxi_glossary.txt"""
-    terms = {}
-    if not GLOSSARY_FILE.exists():
-        print(f"[Seed DB] Glossary file not found: {GLOSSARY_FILE}")
-        return terms
-
-    with open(GLOSSARY_FILE, 'r', encoding='utf-8') as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            if '|' in line:
-                parts = line.split('|', 1)
-                if len(parts) == 2:
-                    jp, en = parts[0].strip(), parts[1].strip()
-                    if jp and en:
-                        terms[jp] = en
-    return terms
-
-
 def main():
     print("\n" + "=" * 60)
     print("  KOTOBA SEED DATABASE BUILDER")
     print("=" * 60)
+    print("[Seed DB] Glossary terms are NOT seeded as full-message cache")
+    print("[Seed DB] entries (they stay in preprocess via ffxi_glossary.txt).")
 
     conn = sqlite3.connect(str(DB_FILE))
     init_db(conn)
 
     now = time.time()
 
-    # 1. Load glossary file terms
-    glossary_terms = load_glossary_file()
-    print(f"[Seed DB] Loaded {len(glossary_terms)} terms from {GLOSSARY_FILE.name}")
-
-    glossary_added = 0
-    for jp, en in glossary_terms.items():
-        cursor = conn.execute(
-            "INSERT OR IGNORE INTO translations (source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at) VALUES (?, 'ja', 'en', ?, 0, ?, ?)",
-            (jp, en, now, now)
-        )
-        if cursor.rowcount > 0:
-            glossary_added += 1
-
-    conn.commit()
-    print(f"[Seed DB] Added {glossary_added} glossary terms")
-
-    # 2. Insert pre-baked seed phrases
+    # Insert pre-baked full-message seed phrases (normalized keys)
     print(f"[Seed DB] Inserting {len(SEED_PHRASES)} pre-baked common phrases")
     phrase_added = 0
+    seen_keys = set()
 
     for jp, en in SEED_PHRASES.items():
+        key = normalize_cache_key(jp)
+        if not key or key in seen_keys:
+            continue
+        seen_keys.add(key)
         cursor = conn.execute(
-            "INSERT OR IGNORE INTO translations (source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at) VALUES (?, 'ja', 'en', ?, 0, ?, ?)",
-            (jp, en, now, now)
+            "INSERT OR IGNORE INTO translations "
+            "(source_text, source_lang, target_lang, translated_text, usage_count, last_used, created_at) "
+            "VALUES (?, 'ja', 'en', ?, 0, ?, ?)",
+            (key, en, now, now)
         )
         if cursor.rowcount > 0:
             phrase_added += 1
@@ -242,7 +250,6 @@ def main():
     conn.commit()
     print(f"[Seed DB] Added {phrase_added} pre-baked phrases")
 
-    # Final count
     total = conn.execute("SELECT COUNT(*) FROM translations").fetchone()[0]
     conn.close()
 
