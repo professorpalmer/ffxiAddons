@@ -9,7 +9,7 @@
 
 _addon.name = 'kotoba'
 _addon.author = 'Zodiarchy @ Asura'
-_addon.version = '2.0.7'
+_addon.version = '2.0.9'
 _addon.commands = {'kotoba', 'kb'}
 
 require('chat')
@@ -189,29 +189,13 @@ local function touch_heartbeat()
 end
 
 local function spawn_translator()
+    -- Fast path: lock-file singleton inside translator.py kills stale siblings.
+    -- Do NOT run PowerShell process scans here — that freezes the game on load.
     local translator_py = windower.addon_path .. 'translator.py'
-    -- Kill zombie kotoba pythonw processes (they steal queue jobs and never reply)
-    os.execute(
-        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
-        .. '"Get-CimInstance Win32_Process | Where-Object { '
-        .. '($_.Name -match \'pythonw?\.exe\') -and ($_.CommandLine -match \'kotoba.+translator\.py\') } '
-        .. '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-    )
-    -- /B = no new window; pythonw = no console
     local cmd = 'start "KotobaTranslator" /B pythonw "' .. translator_py .. '"'
-    local success = os.execute(cmd)
-
-    if not (success == 0 or success == true) then
-        local fallback =
-            'start "KotobaTranslator" /MIN powershell -NoLogo -NoProfile -WindowStyle Hidden '
-            .. '-Command "python \'' .. translator_py .. '\'"'
-        success = os.execute(fallback)
-    end
-
-    if success == 0 or success == true then
-        chat('Translator running headlessly in background.')
-    else
-        chat('Could not auto-start translator. Run start_translator.bat manually if needed.', 167)
+    local ok = os.execute(cmd)
+    if not (ok == 0 or ok == true) then
+        chat('Could not auto-start translator. Run start_translator.bat if needed.', 167)
     end
 end
 
@@ -642,7 +626,18 @@ local function action_cycle_lang()
     settings.language = controls.cycle_lang(settings.language)
     config.save(settings)
     chat('Language: ' .. controls.lang_name(settings.language) .. ' (' .. settings.language .. ')')
-    set_status('Lang → ' .. settings.language)
+    set_status('Language → ' .. settings.language)
+end
+
+local function action_set_lang(code)
+    if not controls.is_valid_lang(code) then
+        return
+    end
+    settings.language = code:lower()
+    config.save(settings)
+    chat('Language: ' .. controls.lang_name(settings.language) .. ' (' .. settings.language .. ')')
+    set_status('Language → ' .. settings.language)
+    panel.refresh(settings, kotoba)
 end
 
 local function action_cycle_channel()
@@ -651,6 +646,21 @@ local function action_cycle_channel()
     chat('Send channel: ' .. settings.send_channel)
     set_status('Channel → ' .. settings.send_channel)
     if (settings.send_channel or ''):lower() == 'tell' and (not kotoba.tell_target or kotoba.tell_target == '') then
+        begin_tell_input()
+    else
+        panel.refresh(settings, kotoba)
+    end
+end
+
+local function action_set_channel(code)
+    if not code or code == '' then
+        return
+    end
+    settings.send_channel = code:lower()
+    config.save(settings)
+    chat('Send channel: ' .. settings.send_channel)
+    set_status('Channel → ' .. settings.send_channel)
+    if settings.send_channel == 'tell' and (not kotoba.tell_target or kotoba.tell_target == '') then
         begin_tell_input()
     else
         panel.refresh(settings, kotoba)
@@ -714,45 +724,32 @@ local function action_copy()
         return
     end
     kotoba.clipboard_buffer = text
-    -- Hidden window — plain os.execute(powershell) flashes a blank cmd on Windows
-    local escaped = text:gsub("'", "''")
-    os.execute(
-        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
-        .. '"Set-Clipboard -Value \'' .. escaped .. '\'"'
-    )
+    -- Native Windower API — never spawn PowerShell (that flashes a console)
+    if windower.copy_to_clipboard then
+        windower.copy_to_clipboard(text)
+    end
     chat('Copied compose buffer (' .. #text .. ' chars)')
     set_status('Copied')
 end
 
-local function read_os_clipboard()
-    local tmp = windower.addon_path .. 'clipboard_tmp.txt'
-    os.execute(
-        'powershell -NoLogo -NoProfile -WindowStyle Hidden -Command '
-        .. '"Get-Clipboard -Raw | Set-Content -Encoding utf8 -Path \'' .. tmp .. '\'"'
-    )
-    local f = io.open(tmp, 'r')
-    if not f then
-        return nil
-    end
-    local content = f:read('*a')
-    f:close()
-    pcall(os.remove, tmp)
-    if not content then
-        return nil
-    end
-    content = content:gsub('\r\n', '\n'):gsub('\r', '\n'):gsub('\n+$', '')
-    if content == '' then
-        return nil
-    end
-    return content
-end
-
 local function action_paste()
-    local os_clip = read_os_clipboard()
-    if os_clip and os_clip ~= '' then
+    local os_clip = nil
+    if windower.get_from_clipboard then
+        os_clip = windower.get_from_clipboard()
+    end
+    if os_clip and type(os_clip) == 'string' then
+        os_clip = os_clip:gsub('\r\n', '\n'):gsub('\r', '\n'):gsub('\n+$', '')
+        if os_clip == '' then
+            os_clip = nil
+        end
+    else
+        os_clip = nil
+    end
+
+    if os_clip then
         kotoba.compose_buffer = os_clip
         kotoba.clipboard_buffer = os_clip
-        chat('Pasted from OS clipboard (' .. #os_clip .. ' chars)')
+        chat('Pasted from clipboard (' .. #os_clip .. ' chars)')
         set_status('Pasted')
         panel.refresh(settings, kotoba)
         return
@@ -784,6 +781,8 @@ local function bind_panel()
         toggle_auto = action_toggle_auto,
         cycle_lang = action_cycle_lang,
         cycle_channel = action_cycle_channel,
+        set_lang = action_set_lang,
+        set_channel = action_set_channel,
         translate_send = action_translate_send,
         copy = action_copy,
         paste = action_paste,
@@ -934,7 +933,6 @@ windower.register_event('load', function()
         kotoba.player_name = player.name
     end
 
-    spawn_translator()
     touch_heartbeat()
 
     if settings.window_visible then
@@ -943,8 +941,10 @@ windower.register_event('load', function()
         panel.hide()
     end
 
-    chat('v' .. _addon.version .. ' loaded. Multi-language translation ready.')
-    chat('Use //kotoba or //kb for commands. Auto-translate: ' .. (settings.auto_translate and 'ON' or 'OFF'))
+    -- Defer translator spawn so //lua l returns immediately (no load hitch)
+    windower.send_command('wait 0.1; lua c kotoba _spawn')
+
+    chat('v' .. _addon.version .. ' ready. //kb for commands.')
 end)
 
 windower.register_event('login', function(name)
@@ -968,6 +968,12 @@ windower.register_event('addon command', function(command, ...)
         if kb_input.ingest_token then
             kb_input.ingest_token(args[1])
         end
+        return
+    end
+
+    -- Internal: deferred translator start (keeps load non-blocking)
+    if command == '_spawn' then
+        spawn_translator()
         return
     end
 

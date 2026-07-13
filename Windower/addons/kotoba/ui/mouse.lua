@@ -1,8 +1,8 @@
 --[[
-    Kotoba UI mouse handling (Wave 2)
+    Kotoba UI mouse handling
 
-    Click / drag patterns adapted from ruptchat mouse_events.lua
-    (https://github.com/erupt321/ruptchat) — do not port full ruptchat.
+    Dropdowns are hit-tested first (they may extend below the panel root).
+    Click / drag patterns adapted from ruptchat mouse_events.lua.
 ]]
 
 local mouse = {}
@@ -12,7 +12,6 @@ if not texts_ok then
     texts = nil
 end
 
--- panel module reference + optional on_drag_end callback
 local panel_ref = nil
 local on_drag_end = nil
 
@@ -32,6 +31,28 @@ local function hit_test(regions, panel_x, panel_y, x, y)
         end
     end
     return nil
+end
+
+local function try_dropdowns(x, y)
+    if not panel_ref or not panel_ref.get_dropdowns then
+        return false
+    end
+    local dds = panel_ref.get_dropdowns()
+    if not dds then
+        return false
+    end
+    -- Prefer an already-open dropdown first
+    for _, dd in ipairs(dds) do
+        if dd and dd.open and dd.handle_click and dd:handle_click(x, y) then
+            return true
+        end
+    end
+    for _, dd in ipairs(dds) do
+        if dd and dd.handle_click and dd:handle_click(x, y) then
+            return true
+        end
+    end
+    return false
 end
 
 function mouse.register(panel, drag_end_cb)
@@ -59,6 +80,17 @@ function mouse.register(panel, drag_end_cb)
             hovered = root:hover(x, y)
         end
 
+        -- Dropdown lists can extend past root; still treat as interactive
+        local dd_open = false
+        if panel_ref.get_dropdowns then
+            for _, dd in ipairs(panel_ref.get_dropdowns() or {}) do
+                if dd and dd.open then
+                    dd_open = true
+                    break
+                end
+            end
+        end
+
         local pos_x, pos_y = 0, 0
         if texts.pos then
             pos_x, pos_y = texts.pos(root)
@@ -66,38 +98,42 @@ function mouse.register(panel, drag_end_cb)
             pos_x, pos_y = root:pos()
         end
 
-        -- 0 = move (drag follow)
         if eventtype == 0 then
             if left_clicked then
                 return true
             end
             if dragged then
-                local new_x = x - dragged.x
-                local new_y = y - dragged.y
-                panel_ref.set_pos(new_x, new_y)
+                panel_ref.set_pos(x - dragged.x, y - dragged.y)
                 return true
             end
-            if hovered then
+            if hovered or dd_open then
                 return true
             end
             return
 
-        -- 1 = left click down
         elseif eventtype == 1 then
+            if try_dropdowns(x, y) then
+                left_clicked = true
+                return true
+            end
             if hovered then
+                if panel_ref.close_dropdowns then
+                    panel_ref.close_dropdowns()
+                end
                 local region = hit_test(panel_ref.get_click_map(), pos_x, pos_y, x, y)
                 if region and region.action then
                     region.action()
                     left_clicked = true
                     return true
                 end
-                -- Title-bar / background drag (ruptchat-style)
                 dragged = { x = x - pos_x, y = y - pos_y }
                 return true
             end
+            if panel_ref.close_dropdowns then
+                panel_ref.close_dropdowns()
+            end
             return
 
-        -- 2 = left click up
         elseif eventtype == 2 then
             if left_clicked then
                 left_clicked = false
@@ -110,7 +146,7 @@ function mouse.register(panel, drag_end_cb)
                 end
                 return true
             end
-            if hovered then
+            if hovered or dd_open then
                 return true
             end
             return
