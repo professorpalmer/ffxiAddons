@@ -4,6 +4,7 @@
 --]]
 
 local config = require('config')
+local Webhook = require('lib/webhook')
 
 local Config = {}
 
@@ -95,24 +96,7 @@ function Config.reload(settings)
 end
 
 function Config.get_webhook_for_chat_type(settings, chat_type)
-    local webhook_map = {
-        Tell = settings.webhook_tell,
-        Party = settings.webhook_party,
-        Linkshell1 = settings.webhook_linkshell1,
-        Linkshell2 = settings.webhook_linkshell2,
-        Say = settings.webhook_say,
-        Shout = settings.webhook_shout,
-        Yell = settings.webhook_yell,
-        Unity = settings.webhook_unity,
-    }
-
-    local specific_webhook = webhook_map[chat_type]
-
-    if specific_webhook and specific_webhook ~= '' then
-        return specific_webhook
-    else
-        return settings.webhook_url
-    end
+    return Webhook.resolve(settings, chat_type)
 end
 
 function Config.get_cooldown_for_chat_type(settings, chat_type)

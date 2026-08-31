@@ -28,16 +28,16 @@
         <monitor_tells>true</monitor_tells>
         <monitor_unity>false</monitor_unity>
         <monitor_yell>false</monitor_yell>
-        <!-- Main/Fallback Webhook URL -->
+        <!-- Main/Fallback Webhook URL. Per-chat-type URLs below are optional; leave empty to use this one. -->
         <webhook_url>INSERT_WEBHOOK_URL_HERE</webhook_url>
-        <!-- Per-Chat-Type Webhook URLs -->
-        <webhook_tell>INSERT_WEBHOOK_URL_HERE</webhook_tell>
-        <webhook_party>INSERT_WEBHOOK_URL_HERE</webhook_party>
-        <webhook_linkshell1>INSERT_WEBHOOK_URL_HERE</webhook_linkshell1>
-        <webhook_linkshell2>INSERT_WEBHOOK_URL_HERE</webhook_linkshell2>
-        <webhook_say>INSERT_WEBHOOK_URL_HERE</webhook_say>
-        <webhook_shout>INSERT_WEBHOOK_URL_HERE</webhook_shout>
-        <webhook_yell>INSERT_WEBHOOK_URL_HERE</webhook_yell>
-        <webhook_unity>INSERT_WEBHOOK_URL_HERE</webhook_unity>
+        <!-- Per-Chat-Type Webhook URLs (optional; empty means use webhook_url) -->
+        <webhook_tell></webhook_tell>
+        <webhook_party></webhook_party>
+        <webhook_linkshell1></webhook_linkshell1>
+        <webhook_linkshell2></webhook_linkshell2>
+        <webhook_say></webhook_say>
+        <webhook_shout></webhook_shout>
+        <webhook_yell></webhook_yell>
+        <webhook_unity></webhook_unity>
     </global>
 </settings>

@@ -1,7 +1,7 @@
 # TellNotifier Addon (Windower Version)
 
 **Author:** Palmer (Zodiarchy @ Asura)  
-**Version:** 1.5 - Multi-Character Support & Enhanced
+**Version:** 1.7 - Webhook fallback for placeholders
 
 This addon sends Discord notifications to your mobile phone when you receive chat messages in Final Fantasy XI.
 
@@ -59,16 +59,16 @@ This addon sends Discord notifications to your mobile phone when you receive cha
 **Edit Settings File (Required)**
 
 1. Open `tellnotifier/data/settings.xml` in a text editor
-2. Find the line: `<webhook_url>PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE</webhook_url>`
-3. Replace `PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE` with your webhook URL
-4. **Optional**: Configure per-chat-type webhooks (see Per-Channel Setup below)
+2. Find the line: `<webhook_url>INSERT_WEBHOOK_URL_HERE</webhook_url>`
+3. Replace `INSERT_WEBHOOK_URL_HERE` with your webhook URL
+4. Leave the per-chat-type webhook tags empty unless you want a separate Discord channel for that chat type
 5. Save the file
 6. Load the addon: `//lua load tellnotifier`
-7. Test it: `//tn test`
+7. Test it: `//tn ping` then send yourself a tell
 
 ### Step 5: Per-Channel Setup (Optional)
 
-To send different chat types to separate Discord channels:
+Per-chat-type webhook tags are optional. Empty tags (and leftover placeholders like `INSERT_WEBHOOK_URL_HERE`) fall back to `webhook_url`. You only need a dedicated URL if you want that chat type in a different Discord channel.
 
 1. **Create additional Discord channels** (e.g., `#party-chat`, `#linkshell-chat`)
 2. **Create webhooks for each channel** (repeat Step 3 for each)
@@ -228,11 +228,14 @@ Settings are stored in `data/settings.xml` and include:
 - Make sure you copied the full webhook URL from Discord
 - Use `//tn webhooks` to check configuration status
 
-### "Test works but tells don't"
+### "Ping works but tells don't"
 
+- **Fixed in v1.7**: if you only set `webhook_url` and left `webhook_tell` as `INSERT_WEBHOOK_URL_HERE`, tells used that placeholder as the URL (`HTTPS failed (invalid host '')` then a curl CMD window). Placeholders and empty per-channel tags now fall back to `webhook_url`.
+- Reload after updating: `//lua reload tellnotifier` (or copy the new addon files, then reload)
+- If an old `settings.xml` still has placeholders on every webhook tag, you can leave them; v1.7 ignores them. Or delete the per-channel values so they stay empty.
 - Enable debug mode: `//tn debug`
 - Send yourself a tell and check console output
-- Look for "Chat mode 3" messages
+- Look for `Mode=3` messages
 
 ### "Unity messages show as hex strings" (FIXED in v1.6)
 
@@ -325,6 +328,10 @@ If you encounter issues:
 
 ## Version History
 
+- **v1.7 (Webhook fallback)**: Tells use `webhook_url` when `webhook_tell` is empty or a shipped placeholder
+  - **Issue #3**: ping worked because it tested `webhook_url`; tells posted to `INSERT_WEBHOOK_URL_HERE` (`invalid host ''`) and popped a curl window
+  - **Shipped settings.xml**: per-channel webhook tags are empty; only `webhook_url` needs a real URL
+  - **README**: placeholder text matches the settings file
 - **v1.6 (Unity Message Fix)**: Fixed Unity message parsing for Domain Invasion announcements
   - **Unity message parsing**: Fixed issue where NPC Domain Invasion announcements showed as hex strings
   - **System message detection**: Automatically detects and parses encoded Unity system messages
