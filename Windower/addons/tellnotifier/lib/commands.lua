@@ -3,6 +3,8 @@
 * Handles all addon commands and user interaction
 --]]
 
+local Webhook = require('lib/webhook')
+
 local Commands = {}
 
 function Commands.show_status(settings)
@@ -10,7 +12,7 @@ function Commands.show_status(settings)
     windower.add_to_chat(123, 'TellNotifier: Discord - ' .. (settings.discord_enabled and 'ENABLED' or 'DISABLED'))
     windower.add_to_chat(123, 'TellNotifier: Debug - ' .. (settings.debug_mode and 'ON' or 'OFF'))
     windower.add_to_chat(123,
-        'TellNotifier: Webhook - ' .. (settings.webhook_url ~= '' and 'CONFIGURED' or 'NOT CONFIGURED'))
+        'TellNotifier: Webhook - ' .. (Webhook.is_usable(settings.webhook_url) and 'CONFIGURED' or 'NOT CONFIGURED'))
     windower.add_to_chat(123, 'TellNotifier: Cooldown - ' .. settings.cooldown .. ' seconds')
     windower.add_to_chat(123, 'TellNotifier: Use //tn help for commands')
 end
@@ -31,16 +33,19 @@ function Commands.show_monitoring_status(settings)
 end
 
 function Commands.show_webhook_status(settings)
+    local function channel_status(url)
+        return Webhook.is_usable(url) and 'CONFIGURED' or 'Using Main'
+    end
     windower.add_to_chat(123, 'TellNotifier Webhook Configuration:')
-    windower.add_to_chat(123, 'Main/Fallback: ' .. (settings.webhook_url ~= '' and 'CONFIGURED' or 'NOT SET'))
-    windower.add_to_chat(123, 'Tell: ' .. (settings.webhook_tell ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Party: ' .. (settings.webhook_party ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Linkshell1: ' .. (settings.webhook_linkshell1 ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Linkshell2: ' .. (settings.webhook_linkshell2 ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Say: ' .. (settings.webhook_say ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Shout: ' .. (settings.webhook_shout ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Yell: ' .. (settings.webhook_yell ~= '' and 'CONFIGURED' or 'Using Main'))
-    windower.add_to_chat(123, 'Unity: ' .. (settings.webhook_unity ~= '' and 'CONFIGURED' or 'Using Main'))
+    windower.add_to_chat(123, 'Main/Fallback: ' .. (Webhook.is_usable(settings.webhook_url) and 'CONFIGURED' or 'NOT SET'))
+    windower.add_to_chat(123, 'Tell: ' .. channel_status(settings.webhook_tell))
+    windower.add_to_chat(123, 'Party: ' .. channel_status(settings.webhook_party))
+    windower.add_to_chat(123, 'Linkshell1: ' .. channel_status(settings.webhook_linkshell1))
+    windower.add_to_chat(123, 'Linkshell2: ' .. channel_status(settings.webhook_linkshell2))
+    windower.add_to_chat(123, 'Say: ' .. channel_status(settings.webhook_say))
+    windower.add_to_chat(123, 'Shout: ' .. channel_status(settings.webhook_shout))
+    windower.add_to_chat(123, 'Yell: ' .. channel_status(settings.webhook_yell))
+    windower.add_to_chat(123, 'Unity: ' .. channel_status(settings.webhook_unity))
     windower.add_to_chat(123, 'Configure webhooks in: /windower/addons/tellnotifier/data/settings.xml')
 end
 

@@ -5,11 +5,12 @@
 
 local https = require('ssl.https')
 local ltn12 = require('ltn12')
+local Webhook = require('lib/webhook')
 
 local Discord = {}
 
 function Discord.send_notification(webhook_url, sender, message, chat_type, debug_mode, char_name)
-    if not webhook_url or webhook_url == '' then
+    if not Webhook.is_usable(webhook_url) then
         if debug_mode then
             windower.add_to_chat(123, string.format('TellNotifier: No webhook URL configured for %s', chat_type))
         end
@@ -82,7 +83,7 @@ function Discord.send_notification(webhook_url, sender, message, chat_type, debu
 end
 
 function Discord.test_webhook(webhook_url, char_name)
-    if not webhook_url or webhook_url == '' then
+    if not Webhook.is_usable(webhook_url) then
         return false, "No webhook URL configured"
     end
 
