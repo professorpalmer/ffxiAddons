@@ -1,12 +1,12 @@
 --[[
 * TellNotifier - Discord Chat Notifications for Windower
 * Author: Palmer (Zodiarchy @ Asura)
-* Version: 1.6 - Unity Message Fix
+* Version: 1.7 - Webhook fallback for placeholders
 --]]
 
 _addon.name     = 'TellNotifier'
 _addon.author   = 'Palmer (Zodiarchy @ Asura)'
-_addon.version  = '1.6'
+_addon.version  = '1.7'
 _addon.desc     = 'Sends Discord notifications when you receive chat messages.'
 _addon.commands = { 'tellnotifier', 'tn' }
 
@@ -234,7 +234,7 @@ windower.register_event('addon command', function(command, ...)
         coroutine.schedule(function()
             local player = windower.ffxi.get_player()
             local char_name = player and player.name or 'Unknown'
-            local success, msg = Discord.test_webhook(settings.webhook_url, char_name)
+            local success, msg = Discord.test_webhook(Config.get_webhook_for_chat_type(settings, 'Tell'), char_name)
             if success then
                 windower.add_to_chat(123, 'TellNotifier: Ping test sent successfully. Check Discord for the message!')
             else
